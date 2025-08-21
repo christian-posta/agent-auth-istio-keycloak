@@ -34,7 +34,7 @@
         "enabled": true,
         "standardFlowEnabled": true,
         "directAccessGrantsEnabled": true,
-        "fullScopeAllowed": false,
+        "fullScopeAllowed": true,
         "webOrigins": ["http://localhost:3000"],
         "redirectUris": ["http://localhost:3000/*", "http://localhost:3000/auth/callback"],
         "attributes": {
