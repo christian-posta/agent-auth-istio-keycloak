@@ -34,9 +34,9 @@
         "enabled": true,
         "standardFlowEnabled": true,
         "directAccessGrantsEnabled": true,
-        "fullScopeAllowed": true,
-        "webOrigins": ["http://localhost:3000"],
-        "redirectUris": ["http://localhost:3000/*", "http://localhost:3000/auth/callback"],
+        "fullScopeAllowed": false,
+        "webOrigins": ["http://localhost:3050"],
+        "redirectUris": ["http://localhost:3050/*", "http://localhost:3050/auth/callback"],
         "attributes": {
           "access.token.lifespan": "3600",
           "client.offline.session.idle.timeout": "2592000",
