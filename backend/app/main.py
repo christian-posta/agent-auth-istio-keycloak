@@ -4,13 +4,19 @@ from fastapi.responses import JSONResponse
 from app.api import auth, agents, optimization
 from app.tracing_config import initialize_tracing
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize tracing before creating the FastAPI app
 jaeger_host = os.getenv("JAEGER_HOST", "localhost")  # Default to localhost for development
 jaeger_port = int(os.getenv("JAEGER_PORT", "4317"))
 
 print(f"🔗 Initializing tracing with Jaeger at {jaeger_host}:{jaeger_port}")
-print(f"🔗 Set JAEGER_HOST environment variable to override (current: {os.getenv('JAEGER_HOST', 'NOT SET')})")
+print(f"🔗 Environment variables loaded from .env file")
+print(f"🔗 JAEGER_HOST: {os.getenv('JAEGER_HOST', 'NOT SET')}")
+print(f"🔗 JAEGER_PORT: {os.getenv('JAEGER_PORT', 'NOT SET')}")
 
 initialize_tracing(
     service_name="supply-chain-backend",
