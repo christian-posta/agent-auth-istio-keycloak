@@ -262,11 +262,6 @@ docker-compose*.yml
 # Helm
 charts/*.tgz
 
-# Istio
-*.yaml
-*.yml
-!k8s/*.yaml
-!k8s/*.yml
 
 # Keycloak
 keycloak-data/
