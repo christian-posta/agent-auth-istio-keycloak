@@ -26,6 +26,28 @@
         }
       }
     ],
+    "clientScopes": [
+      {
+        "name": "agentgateway-audience-scope",
+        "description": "Adds agentgateway to token audience",
+        "protocol": "openid-connect",
+        "attributes": {
+          "include.in.token.scope": "true",
+          "display.on.consent.screen": "false"
+        },
+        "mappers": [
+          {
+            "name": "agentgateway-audience-mapper",
+            "type": "oidc-audience-mapper",
+            "config": {
+              "included.client.audience": "agentgateway",
+              "id.token.claim": "true",
+              "access.token.claim": "true"
+            }
+          }
+        ]
+      }
+    ],
     "clients": [
       {
         "clientId": "supply-chain-ui",
@@ -37,6 +59,9 @@
         "fullScopeAllowed": false,
         "webOrigins": ["http://localhost:3050"],
         "redirectUris": ["http://localhost:3050/*", "http://localhost:3050/auth/callback"],
+        "assignedScopes": {
+          "default": ["agentgateway-audience-scope"]
+        },
         "attributes": {
           "access.token.lifespan": "3600",
           "client.offline.session.idle.timeout": "2592000",
