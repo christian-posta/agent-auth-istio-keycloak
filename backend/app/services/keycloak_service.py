@@ -31,6 +31,17 @@ class KeycloakService:
                 print("No public key available for token verification")
                 return None
             
+            print(f"Attempting to verify token with public key: {self.public_key[:100]}...")
+            print(f"Token to verify: {token[:50]}...")
+            
+            # First, let's decode the token without verification to see what algorithm it claims to use
+            try:
+                unverified_payload = jwt.decode(token, options={"verify_signature": False})
+                print(f"Unverified token payload: {unverified_payload}")
+                print(f"Token algorithm: {unverified_payload.get('alg', 'unknown')}")
+            except Exception as e:
+                print(f"Failed to decode unverified token: {e}")
+            
             # Decode and verify the JWT token
             payload = jwt.decode(
                 token,
@@ -51,6 +62,9 @@ class KeycloakService:
             return None
         except Exception as e:
             print(f"Token verification failed: {e}")
+            print(f"Exception type: {type(e)}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def get_user_info(self, token: str) -> Optional[Dict]:

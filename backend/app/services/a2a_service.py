@@ -28,7 +28,10 @@ class A2AService:
     
     async def _create_client(self) -> tuple[Any, httpx.AsyncClient]:
         """Create A2A client and HTTP client"""
+        print(f"🔧 Creating A2A client for URL: {self.agent_url}")
+        
         httpx_client = httpx.AsyncClient(timeout=self.timeout)
+        print("✅ HTTPX client created")
         
         # Create client configuration
         config = ClientConfig(
@@ -36,18 +39,22 @@ class A2AService:
             supported_transports=[TransportProtocol.jsonrpc],
             streaming=False
         )
+        print("✅ Client config created")
         
         # Create client factory
         factory = ClientFactory(config)
+        print("✅ Client factory created")
         
         # Create agent card
         agent_card = minimal_agent_card(
             url=self.agent_url,
             transports=["JSONRPC"]
         )
+        print(f"✅ Agent card created: {agent_card}")
         
         # Create client
         client = factory.create(agent_card)
+        print("✅ A2A client created")
         
         return client, httpx_client
     
@@ -55,47 +62,102 @@ class A2AService:
         self, 
         request: OptimizationRequest, 
         user_id: str
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> Dict[str, Any]:
         """Optimize supply chain using A2A agent"""
         
         client, httpx_client = None, None
         
         try:
+            print(f"🚀 Starting A2A optimization for user: {user_id}")
+            print(f"📝 Request: {request}")
+            
             # Create A2A client
+            print("🔧 Creating A2A client...")
             client, httpx_client = await self._create_client()
+            print("✅ A2A client created successfully")
             
             # Create optimization message
             message_content = self._create_optimization_message(request)
+            print(f"💬 Created message: {message_content}")
+            
             message = create_text_message_object(
                 role=Role.user, 
                 content=message_content
             )
+            print(f"📤 Message object created: {message}")
             
-            # Send message to agent and stream responses
+            # Send message to agent and get response
+            print(f"📡 Sending message to agent at: {self.agent_url}")
+            response_content = None
+            response_count = 0
+            
             async for event in client.send_message(message):
-                # Process the event and yield progress updates
-                progress_data = self._process_agent_response(event, request, user_id)
-                if progress_data:
-                    yield progress_data
+                response_count += 1
+                print(f"📨 Received event #{response_count}: {event}")
+                print(f"📨 Event type: {type(event)}")
+                print(f"📨 Event attributes: {dir(event)}")
                 
-                # Check if optimization is complete
-                if self._is_optimization_complete(event):
-                    break
+                # Get the response content from the A2A message structure
+                if hasattr(event, 'parts') and event.parts:
+                    # Extract text content from the parts
+                    for part in event.parts:
+                        if hasattr(part, 'root') and hasattr(part.root, 'text'):
+                            response_content = part.root.text
+                            print(f"✅ Got response content: {response_content}")
+                            break
+                    
+                    if response_content:
+                        break  # Just get the first response
+                else:
+                    print(f"⚠️ Event has no parts or parts are empty")
+            
+            print(f"📊 Total events received: {response_count}")
+            
+            if response_content:
+                # Process the agent response
+                result = {
+                    "type": "success",
+                    "message": "Supply chain optimization completed",
+                    "agent_response": response_content,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "user_id": user_id,
+                    "request_id": str(uuid.uuid4())
+                }
+                print(f"🎉 Returning success result: {result}")
+                return result
+            else:
+                error_result = {
+                    "type": "error",
+                    "message": "No response received from A2A agent",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "user_id": user_id,
+                    "request_id": str(uuid.uuid4())
+                }
+                print(f"❌ Returning error result: {error_result}")
+                return error_result
                     
         except Exception as e:
-            # Yield error information
-            error_data = {
+            # Return error information
+            error_result = {
                 "type": "error",
                 "message": f"Optimization failed: {str(e)}",
                 "timestamp": datetime.utcnow().isoformat(),
-                "user_id": user_id
+                "user_id": user_id,
+                "request_id": str(uuid.uuid4())
             }
-            yield error_data
+            print(f"💥 Exception occurred: {e}")
+            print(f"💥 Exception type: {type(e)}")
+            import traceback
+            traceback.print_exc()
+            print(f"❌ Returning error result: {error_result}")
+            return error_result
             
         finally:
             # Clean up HTTP client
             if httpx_client:
+                print("🧹 Cleaning up HTTP client")
                 await httpx_client.aclose()
+                print("✅ HTTP client cleaned up")
     
     def _create_optimization_message(self, request: OptimizationRequest) -> str:
         """Create optimization message for the A2A agent"""

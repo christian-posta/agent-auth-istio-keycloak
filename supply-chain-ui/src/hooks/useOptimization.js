@@ -35,17 +35,41 @@ export const useOptimization = () => {
       const progressInterval = setInterval(async () => {
         try {
           const progressData = await apiService.getOptimizationProgress(response.request_id);
-          setProgress(progressData.progress || 0);
+          console.log('Progress data received:', progressData);
+          setProgress(progressData.progress_percentage || 0);
+          
+          // Update activities from progress data
+          if (progressData.activities) {
+            setActivities(progressData.activities);
+          }
 
           if (progressData.status === 'completed') {
             clearInterval(progressInterval);
             setIsRunning(false);
             setProgress(100);
             
-            // Get results
-            const resultsData = await apiService.getOptimizationResults(response.request_id);
-            setResults(resultsData);
-            setShowResults(true);
+            // Always use the request_id from the progress data
+            const completedRequestId = progressData.request_id;
+            console.log('Optimization completed, fetching results for:', completedRequestId);
+            console.log('Original request ID was:', response.request_id);
+            
+            if (!completedRequestId) {
+              console.error('No request_id in progress data:', progressData);
+              return;
+            }
+            
+            // Wait a moment for results to be generated, then get results
+            setTimeout(async () => {
+              try {
+                const resultsData = await apiService.getOptimizationResults(completedRequestId);
+                setResults(resultsData);
+                setShowResults(true);
+              } catch (resultsErr) {
+                console.error('Error fetching results:', resultsErr);
+                // Don't show error to user, just log it
+              }
+            }, 1000);
+            
           } else if (progressData.status === 'failed') {
             clearInterval(progressInterval);
             setIsRunning(false);

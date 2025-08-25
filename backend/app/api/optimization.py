@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import List
 from app.models import (
-    OptimizationRequest, OptimizationProgress, OptimizationResults
+    OptimizationRequest, OptimizationProgress, OptimizationResults, OptimizationStatus, AgentStatus
 )
 from app.services.optimization_service import optimization_service
 from app.services.a2a_service import a2a_service
@@ -28,56 +28,69 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 async def run_optimization_workflow(request_id: str, user_id: str, request: OptimizationRequest):
     """Background task to run the optimization workflow using A2A agent"""
     try:
+        print(f"🔄 Starting optimization workflow for request: {request_id}")
+        print(f"👤 User ID: {user_id}")
+        print(f"📋 Request: {request}")
+        
         # Update progress to running
         optimization_service.update_progress(request_id, 0.0, "Connecting to A2A supply-chain agent")
+        print("📊 Progress updated: Connecting to A2A agent")
         
-        # Collect all responses from the A2A agent
-        responses = []
-        progress_count = 0
+        # Get response from A2A agent
+        print("🤖 Calling A2A service...")
+        response = await a2a_service.optimize_supply_chain(request, user_id)
+        print(f"📨 A2A service response: {response}")
         
-        async for response in a2a_service.optimize_supply_chain(request, user_id):
-            if response["type"] == "progress":
-                # Update progress
-                progress_count += 1
-                progress_percentage = min(progress_count * 20, 90)  # Cap at 90% until completion
-                optimization_service.update_progress(
-                    request_id, 
-                    progress_percentage, 
-                    response["message"]
-                )
-                responses.append(response)
-                
-            elif response["type"] == "error":
-                # Handle error
-                optimization_service.update_progress(request_id, 0.0, f"Error: {response['message']}")
-                return
-        
-        # Mark optimization as completed
-        optimization_service.update_progress(request_id, 100.0, "Optimization completed by A2A agent")
-        
-        # Create mock activities from responses for now (can be enhanced later)
-        from app.models import AgentActivity, DelegationChain
-        activities = []
-        for i, response in enumerate(responses):
+        if response["type"] == "success":
+            print("✅ A2A optimization successful")
+            # Update progress to completed
+            optimization_service.update_progress(request_id, 100.0, "Optimization completed by A2A agent")
+            print("📊 Progress updated: Optimization completed")
+            
+            # Create activity from A2A agent response
+            from app.models import AgentActivity, DelegationChain
             activity = AgentActivity(
-                id=i + 1,
+                id=1,
                 timestamp=response["timestamp"],
                 agent="a2a-supply-chain-agent",
-                action="optimization_step",
+                action="supply_chain_optimization",
                 delegation=DelegationChain(sub=user_id, aud="a2a-agent", scope="supply-chain:optimize"),
-                status="completed",
-                details=response["message"]
+                status=AgentStatus.COMPLETED,
+                details=response["agent_response"]
             )
-            activities.append(activity)
-        
-        optimization_service.complete_optimization(request_id, activities)
+            print(f"📝 Created activity: {activity}")
+            
+            print("🎯 Calling complete_optimization...")
+            optimization_service.complete_optimization(request_id, [activity])
+            print("🎯 Optimization marked as completed")
+            
+            # Verify results were created
+            print("🔍 Verifying results were created...")
+            results = optimization_service.get_optimization_results(request_id)
+            if results:
+                print(f"✅ Results found: {results}")
+            else:
+                print("❌ No results found after completion")
+            
+        elif response["type"] == "error":
+            print(f"❌ A2A optimization failed: {response['message']}")
+            # Handle error
+            optimization_service.update_progress(request_id, 0.0, f"Error: {response['message']}")
+            if request_id in optimization_service.optimizations:
+                optimization_service.optimizations[request_id].status = OptimizationStatus.FAILED
+            print("📊 Progress updated: Optimization failed")
         
     except Exception as e:
+        print(f"💥 Exception in optimization workflow: {e}")
+        print(f"💥 Exception type: {type(e)}")
+        import traceback
+        traceback.print_exc()
         # Update progress with error
         optimization_service.update_progress(request_id, 0.0, f"Error: {str(e)}")
         # Mark as failed
         if request_id in optimization_service.optimizations:
-            optimization_service.optimizations[request_id].status = "failed"
+            optimization_service.optimizations[request_id].status = OptimizationStatus.FAILED
+        print("📊 Progress updated: Exception occurred")
 
 @router.post("/start", response_model=dict)
 async def start_optimization(
@@ -121,14 +134,20 @@ async def get_optimization_results(
     current_user: dict = Depends(get_current_user)
 ):
     """Get results of a completed optimization"""
+    print(f"🔍 Results endpoint called for request: {request_id}")
+    print(f"👤 Current user: {current_user}")
+    
     results = optimization_service.get_optimization_results(request_id)
+    print(f"📋 Results returned from service: {results}")
     
     if not results:
+        print(f"❌ No results found for request: {request_id}")
         raise HTTPException(
             status_code=404,
             detail="Optimization results not found or optimization not completed"
         )
     
+    print(f"✅ Returning results for request: {request_id}")
     return results
 
 @router.get("/all", response_model=List[OptimizationProgress])
