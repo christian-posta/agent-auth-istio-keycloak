@@ -10,7 +10,7 @@ export const useOptimization = () => {
   const [error, setError] = useState(null);
   const [requestId, setRequestId] = useState(null);
 
-  const startOptimization = useCallback(async () => {
+  const startOptimization = useCallback(async (customPrompt = '') => {
     try {
       setError(null);
       setIsRunning(true);
@@ -18,9 +18,10 @@ export const useOptimization = () => {
       setShowResults(false);
       setResults(null);
 
-      // Start optimization
+      // Start optimization with custom prompt
       const response = await apiService.startOptimization({
         scenario: 'laptop_procurement',
+        custom_prompt: customPrompt.trim() || 'optimize laptop supply chain',
         constraints: {
           budget_limit: 500000,
           delivery_time: '2 weeks',

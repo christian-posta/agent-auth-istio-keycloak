@@ -162,26 +162,32 @@ class A2AService:
     def _create_optimization_message(self, request: OptimizationRequest) -> str:
         """Create optimization message for the A2A agent"""
         
-        # Extract constraints from the request
-        constraints = []
-        if hasattr(request, 'constraints'):
-            if hasattr(request.constraints, 'budget_limit'):
-                constraints.append(f"budget limit: ${request.constraints.budget_limit:,}")
-            if hasattr(request.constraints, 'delivery_time'):
-                constraints.append(f"delivery time: {request.constraints.delivery_time}")
-            if hasattr(request.constraints, 'quality_requirement'):
-                constraints.append(f"quality: {request.constraints.quality_requirement}")
+        # Use custom prompt if provided, otherwise fall back to default
+        if request.custom_prompt and request.custom_prompt.strip():
+            base_message = request.custom_prompt.strip()
+        else:
+            # Extract constraints from the request
+            constraints = []
+            if hasattr(request, 'constraints'):
+                if hasattr(request.constraints, 'budget_limit'):
+                    constraints.append(f"budget limit: ${request.constraints.budget_limit:,}")
+                if hasattr(request.constraints, 'delivery_time'):
+                    constraints.append(f"delivery time: {request.constraints.delivery_time}")
+                if hasattr(request.constraints, 'quality_requirement'):
+                    constraints.append(f"quality: {request.constraints.quality_requirement}")
+            
+            # Create the default message
+            message_parts = [
+                "optimize laptop supply chain",
+                f"scenario: {getattr(request, 'scenario', 'laptop_procurement')}"
+            ]
+            
+            if constraints:
+                message_parts.append(f"constraints: {', '.join(constraints)}")
+            
+            base_message = ". ".join(message_parts)
         
-        # Create the message
-        message_parts = [
-            "optimize laptop supply chain",
-            f"scenario: {getattr(request, 'scenario', 'laptop_procurement')}"
-        ]
-        
-        if constraints:
-            message_parts.append(f"constraints: {', '.join(constraints)}")
-        
-        return ". ".join(message_parts)
+        return base_message
     
     def _process_agent_response(
         self, 

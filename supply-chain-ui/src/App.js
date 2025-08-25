@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Shield, Clock, CheckCircle, DollarSign, Package, TrendingUp, AlertCircle } from 'lucide-react';
 import { useKeycloak } from './hooks/useKeycloak';
 import { useOptimization } from './hooks/useOptimization';
@@ -252,6 +252,8 @@ const Dashboard = () => {
     startOptimization,
     clearOptimization
   } = useOptimization();
+  
+  const [optimizationPrompt, setOptimizationPrompt] = useState('');
 
   // Set Keycloak instance in API service
   useEffect(() => {
@@ -283,11 +285,30 @@ const Dashboard = () => {
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Supply Chain Optimization</h2>
                 <p className="text-gray-600 mb-6">
-                  Initiate autonomous agent workflow to optimize laptop procurement and inventory management
+                  Customize your optimization request and initiate autonomous agent workflow
                 </p>
                 
+                {/* Custom Prompt Input */}
+                <div className="max-w-2xl mx-auto mb-6">
+                  <label htmlFor="optimization-prompt" className="block text-sm font-medium text-gray-700 mb-2 text-left">
+                    Custom Optimization Prompt
+                  </label>
+                  <textarea
+                    id="optimization-prompt"
+                    placeholder="e.g., Analyze our laptop procurement strategy for Q4, focusing on cost optimization and supplier diversity. Consider our budget of $100k and need for 50 units."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    rows={4}
+                    value={optimizationPrompt}
+                    onChange={(e) => setOptimizationPrompt(e.target.value)}
+                    disabled={isRunning}
+                  />
+                  <p className="text-xs text-gray-500 mt-1 text-left">
+                    Describe your specific optimization needs, constraints, or questions for the AI agent
+                  </p>
+                </div>
+                
                 <button
-                  onClick={startOptimization}
+                  onClick={() => startOptimization(optimizationPrompt)}
                   disabled={isRunning}
                   className={`inline-flex items-center px-8 py-4 border border-transparent text-lg font-medium rounded-lg ${
                     isRunning 
@@ -303,7 +324,7 @@ const Dashboard = () => {
                   ) : (
                     <>
                       <Package className="h-6 w-6 mr-3" />
-                      Optimize Laptop Supply Chain
+                      {optimizationPrompt.trim() ? 'Run Custom Optimization' : 'Optimize Laptop Supply Chain'}
                     </>
                   )}
                 </button>

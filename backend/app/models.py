@@ -58,6 +58,7 @@ class AgentStatusResponse(BaseModel):
 # Optimization Models
 class OptimizationRequest(BaseModel):
     optimization_type: str = "laptop_supply_chain"
+    custom_prompt: Optional[str] = None
     parameters: Optional[Dict[str, Any]] = None
 
 class OptimizationProgress(BaseModel):
