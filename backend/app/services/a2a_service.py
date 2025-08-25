@@ -12,6 +12,8 @@ from a2a.client import minimal_agent_card
 
 from app.config import settings
 from app.models import OptimizationRequest, OptimizationProgress, OptimizationResults
+from app.tracing_config import span, add_event, set_attribute, extract_context_from_headers
+from app.services.tracing_interceptor import TracingInterceptor
 
 
 class A2AService:
@@ -26,168 +28,239 @@ class A2AService:
             pool=30.0          # 30 seconds for connection pool
         )
     
-    async def _create_client(self) -> tuple[Any, httpx.AsyncClient]:
-        """Create A2A client and HTTP client"""
-        print(f"🔧 Creating A2A client for URL: {self.agent_url}")
-        
-        httpx_client = httpx.AsyncClient(timeout=self.timeout)
-        print("✅ HTTPX client created")
-        
-        # Create client configuration
-        config = ClientConfig(
-            httpx_client=httpx_client,
-            supported_transports=[TransportProtocol.jsonrpc],
-            streaming=False
-        )
-        print("✅ Client config created")
-        
-        # Create client factory
-        factory = ClientFactory(config)
-        print("✅ Client factory created")
-        
-        # Create agent card
-        agent_card = minimal_agent_card(
-            url=self.agent_url,
-            transports=["JSONRPC"]
-        )
-        print(f"✅ Agent card created: {agent_card}")
-        
-        # Create client
-        client = factory.create(agent_card)
-        print("✅ A2A client created")
-        
-        return client, httpx_client
+    async def _create_client(self, trace_context: Any = None) -> tuple[Any, httpx.AsyncClient]:
+        """Create A2A client and HTTP client with tracing support"""
+        with span("a2a_service.create_client", {
+            "agent_url": self.agent_url,
+            "has_trace_context": trace_context is not None
+        }) as span_obj:
+            
+            print(f"🔧 Creating A2A client for URL: {self.agent_url}")
+            add_event("creating_a2a_client", {"agent_url": self.agent_url})
+            
+            httpx_client = httpx.AsyncClient(timeout=self.timeout)
+            print("✅ HTTPX client created")
+            add_event("httpx_client_created")
+            
+            # Create client configuration
+            config = ClientConfig(
+                httpx_client=httpx_client,
+                supported_transports=[TransportProtocol.jsonrpc],
+                streaming=False
+            )
+            print("✅ Client config created")
+            add_event("client_config_created")
+            
+            # Create client factory
+            factory = ClientFactory(config)
+            print("✅ Client factory created")
+            add_event("client_factory_created")
+            
+            # Create agent card
+            agent_card = minimal_agent_card(
+                url=self.agent_url,
+                transports=["JSONRPC"]
+            )
+            print(f"✅ Agent card created: {agent_card}")
+            add_event("agent_card_created", {"agent_url": self.agent_url})
+            
+            # Create tracing interceptor
+            tracing_interceptor = TracingInterceptor()
+            add_event("tracing_interceptor_created")
+            
+            # Create client with tracing interceptor
+            client = factory.create(agent_card, interceptors=[tracing_interceptor])
+            print("✅ A2A client created with tracing")
+            add_event("a2a_client_created_with_tracing")
+            
+            return client, httpx_client
     
     async def optimize_supply_chain(
         self, 
         request: OptimizationRequest, 
-        user_id: str
+        user_id: str,
+        trace_context: Any = None
     ) -> Dict[str, Any]:
-        """Optimize supply chain using A2A agent"""
+        """Optimize supply chain using A2A agent with tracing support"""
         
-        client, httpx_client = None, None
-        
-        try:
-            print(f"🚀 Starting A2A optimization for user: {user_id}")
-            print(f"📝 Request: {request}")
+        with span("a2a_service.optimize_supply_chain", {
+            "user_id": user_id,
+            "request_type": request.effective_optimization_type,
+            "has_trace_context": trace_context is not None
+        }, parent_context=trace_context) as span_obj:
             
-            # Create A2A client
-            print("🔧 Creating A2A client...")
-            client, httpx_client = await self._create_client()
-            print("✅ A2A client created successfully")
+            client, httpx_client = None, None
             
-            # Create optimization message
-            message_content = self._create_optimization_message(request)
-            print(f"💬 Created message: {message_content}")
-            
-            message = create_text_message_object(
-                role=Role.user, 
-                content=message_content
-            )
-            print(f"📤 Message object created: {message}")
-            
-            # Send message to agent and get response
-            print(f"📡 Sending message to agent at: {self.agent_url}")
-            response_content = None
-            response_count = 0
-            
-            async for event in client.send_message(message):
-                response_count += 1
-                print(f"📨 Received event #{response_count}: {event}")
-                print(f"📨 Event type: {type(event)}")
-                print(f"📨 Event attributes: {dir(event)}")
+            try:
+                print(f"🚀 Starting A2A optimization for user: {user_id}")
+                print(f"📝 Request: {request}")
                 
-                # Get the response content from the A2A message structure
-                if hasattr(event, 'parts') and event.parts:
-                    # Extract text content from the parts
-                    for part in event.parts:
-                        if hasattr(part, 'root') and hasattr(part.root, 'text'):
-                            response_content = part.root.text
-                            print(f"✅ Got response content: {response_content}")
-                            break
+                add_event("optimization_started", {
+                    "user_id": user_id,
+                    "request_type": request.effective_optimization_type
+                })
+                
+                # Create A2A client with tracing
+                print("🔧 Creating A2A client...")
+                client, httpx_client = await self._create_client(trace_context)
+                print("✅ A2A client created successfully")
+                add_event("a2a_client_created_successfully")
+                
+                # Create optimization message
+                message_content = self._create_optimization_message(request)
+                print(f"💬 Created message: {message_content}")
+                print(f"🔍 Custom prompt was: {request.custom_prompt}")
+                print(f"🔍 Final message length: {len(message_content)}")
+                add_event("optimization_message_created", {
+                    "message_length": len(message_content),
+                    "custom_prompt": request.custom_prompt,
+                    "final_message": message_content[:100] + "..." if len(message_content) > 100 else message_content
+                })
+                
+                message = create_text_message_object(
+                    role=Role.user, 
+                    content=message_content
+                )
+                print(f"📤 Message object created: {message}")
+                add_event("message_object_created")
+                
+                # Send message to agent and get response
+                print(f"📡 Sending message to agent at: {self.agent_url}")
+                add_event("sending_message_to_agent", {"agent_url": self.agent_url})
+                
+                response_content = None
+                response_count = 0
+                
+                async for event in client.send_message(message):
+                    response_count += 1
+                    print(f"📨 Received event #{response_count}: {event}")
+                    print(f"📨 Event type: {type(event)}")
+                    print(f"📨 Event attributes: {dir(event)}")
                     
-                    if response_content:
-                        break  # Just get the first response
+                    add_event("agent_response_received", {
+                        "event_number": response_count,
+                        "event_type": str(type(event))
+                    })
+                    
+                    # Get the response content from the A2A message structure
+                    if hasattr(event, 'content') and event.content:
+                        if isinstance(event.content, str):
+                            response_content = event.content
+                            print(f"📝 String content: {response_content[:100]}...")
+                        elif isinstance(event.content, dict) and 'content' in event.content:
+                            response_content = event.content['content']
+                            print(f"📝 Dict content: {response_content[:100]}...")
+                    elif hasattr(event, 'text'):
+                        response_content = event.text
+                        print(f"📝 Text attribute: {response_content[:100]}...")
+                    elif hasattr(event, 'parts') and event.parts:
+                        # Handle parts structure
+                        for part in event.parts:
+                            if hasattr(part, 'root') and hasattr(part.root, 'text'):
+                                response_content = part.root.text
+                                print(f"📝 Part text: {response_content[:100]}...")
+                                break
+                    
+                    # Just get the first response for now
+                    break
+                
+                if response_content:
+                    print(f"✅ Got response from agent: {response_content[:100]}...")
+                    add_event("agent_response_processed", {
+                        "response_length": len(response_content),
+                        "response_preview": response_content[:100]
+                    })
+                    
+                    # Close HTTP client
+                    await httpx_client.aclose()
+                    add_event("httpx_client_closed")
+                    
+                    return {
+                        "type": "success",
+                        "agent_response": response_content,
+                        "timestamp": datetime.now().isoformat(),
+                        "user_id": user_id,
+                        "request_id": str(uuid.uuid4())
+                    }
                 else:
-                    print(f"⚠️ Event has no parts or parts are empty")
-            
-            print(f"📊 Total events received: {response_count}")
-            
-            if response_content:
-                # Process the agent response
-                result = {
-                    "type": "success",
-                    "message": "Supply chain optimization completed",
-                    "agent_response": response_content,
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "user_id": user_id,
-                    "request_id": str(uuid.uuid4())
-                }
-                print(f"🎉 Returning success result: {result}")
-                return result
-            else:
-                error_result = {
-                    "type": "error",
-                    "message": "No response received from A2A agent",
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "user_id": user_id,
-                    "request_id": str(uuid.uuid4())
-                }
-                print(f"❌ Returning error result: {error_result}")
-                return error_result
+                    print("❌ No response content received from agent")
+                    add_event("no_agent_response_received")
                     
-        except Exception as e:
-            # Return error information
-            error_result = {
-                "type": "error",
-                "message": f"Optimization failed: {str(e)}",
-                "timestamp": datetime.utcnow().isoformat(),
-                "user_id": user_id,
-                "request_id": str(uuid.uuid4())
-            }
-            print(f"💥 Exception occurred: {e}")
-            print(f"💥 Exception type: {type(e)}")
-            import traceback
-            traceback.print_exc()
-            print(f"❌ Returning error result: {error_result}")
-            return error_result
-            
-        finally:
-            # Clean up HTTP client
-            if httpx_client:
-                print("🧹 Cleaning up HTTP client")
-                await httpx_client.aclose()
-                print("✅ HTTP client cleaned up")
-    
+                    # Close HTTP client
+                    await httpx_client.aclose()
+                    add_event("httpx_client_closed")
+                    
+                    return {
+                        "type": "error",
+                        "message": "No response received from A2A agent",
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    
+            except Exception as e:
+                print(f"💥 Exception in A2A optimization: {e}")
+                print(f"💥 Exception type: {type(e)}")
+                import traceback
+                traceback.print_exc()
+                
+                add_event("a2a_optimization_exception", {
+                    "error": str(e),
+                    "error_type": str(type(e))
+                })
+                
+                # Close HTTP client if it exists
+                if httpx_client:
+                    try:
+                        await httpx_client.aclose()
+                        add_event("httpx_client_closed_on_error")
+                    except:
+                        pass
+                
+                return {
+                    "type": "error",
+                    "message": f"Exception in A2A optimization: {str(e)}",
+                    "timestamp": datetime.now().isoformat()
+                }
+
     def _create_optimization_message(self, request: OptimizationRequest) -> str:
-        """Create optimization message for the A2A agent"""
-        
-        # Use custom prompt if provided, otherwise fall back to default
-        if request.custom_prompt and request.custom_prompt.strip():
-            base_message = request.custom_prompt.strip()
-        else:
-            # Extract constraints from the request
-            constraints = []
-            if hasattr(request, 'constraints'):
-                if hasattr(request.constraints, 'budget_limit'):
-                    constraints.append(f"budget limit: ${request.constraints.budget_limit:,}")
-                if hasattr(request.constraints, 'delivery_time'):
-                    constraints.append(f"delivery time: {request.constraints.delivery_time}")
-                if hasattr(request.constraints, 'quality_requirement'):
-                    constraints.append(f"quality: {request.constraints.quality_requirement}")
+        """Create optimization message for A2A agent"""
+        with span("a2a_service.create_optimization_message", {
+            "request_type": request.effective_optimization_type,
+            "has_constraints": bool(request.effective_constraints),
+            "has_custom_prompt": bool(request.custom_prompt)
+        }) as span_obj:
             
-            # Create the default message
-            message_parts = [
-                "optimize laptop supply chain",
-                f"scenario: {getattr(request, 'scenario', 'laptop_procurement')}"
-            ]
+            # Start with custom prompt if provided, otherwise use base message
+            if request.custom_prompt:
+                message = request.custom_prompt
+                # If custom prompt doesn't end with a period, add one
+                if not message.endswith('.'):
+                    message += '.'
+            else:
+                # Base message
+                message = f"Please optimize our supply chain for {request.effective_optimization_type}"
             
-            if constraints:
-                message_parts.append(f"constraints: {', '.join(constraints)}")
+            # Add constraints if specified
+            if request.effective_constraints:
+                constraints_text = ", ".join(request.effective_constraints)
+                message += f" with the following constraints: {constraints_text}"
             
-            base_message = ". ".join(message_parts)
-        
-        return base_message
+            # Add priority if specified
+            if request.priority:
+                message += f". Priority level: {request.priority}"
+            
+            # Add additional context if using base message
+            if not request.custom_prompt:
+                message += ". Please provide detailed analysis and recommendations."
+            
+            add_event("optimization_message_created", {
+                "message_length": len(message),
+                "has_constraints": bool(request.effective_constraints),
+                "has_priority": bool(request.priority),
+                "has_custom_prompt": bool(request.custom_prompt),
+                "custom_prompt_used": bool(request.custom_prompt)
+            })
+            
+            return message
     
     def _process_agent_response(
         self, 
@@ -262,30 +335,57 @@ class A2AService:
         return False
     
     async def test_connection(self) -> Dict[str, Any]:
-        """Test connection to the A2A agent"""
-        try:
-            client, httpx_client = await self._create_client()
+        """Test connection to the A2A agent with tracing support"""
+        with span("a2a_service.test_connection", {
+            "agent_url": self.agent_url
+        }) as span_obj:
             
-            # Try to get agent card to test connection
-            from a2a.client import A2ACardResolver
-            resolver = A2ACardResolver(httpx_client, self.agent_url.rstrip('/'))
-            agent_card = await resolver.get_agent_card()
-            
-            await httpx_client.aclose()
-            
-            return {
-                "status": "connected",
-                "agent_name": getattr(agent_card, 'name', 'Unknown'),
-                "agent_description": getattr(agent_card, 'description', 'No description'),
-                "url": self.agent_url
-            }
-            
-        except Exception as e:
-            return {
-                "status": "error",
-                "error": str(e),
-                "url": self.agent_url
-            }
+            try:
+                add_event("connection_test_started", {"agent_url": self.agent_url})
+                
+                # Create a simple test client
+                client, httpx_client = await self._create_client()
+                
+                # Test with a simple message
+                test_message = create_text_message_object(
+                    role=Role.user, 
+                    content="test connection"
+                )
+                
+                add_event("test_message_created")
+                
+                # Try to send the message
+                response_received = False
+                async for event in client.send_message(test_message):
+                    response_received = True
+                    break
+                
+                # Close HTTP client
+                await httpx_client.aclose()
+                add_event("httpx_client_closed")
+                
+                if response_received:
+                    add_event("connection_test_successful")
+                    return {
+                        "status": "connected",
+                        "url": self.agent_url,
+                        "message": "Successfully connected to A2A agent"
+                    }
+                else:
+                    add_event("connection_test_no_response")
+                    return {
+                        "status": "warning",
+                        "url": self.agent_url,
+                        "message": "Connected but no response received"
+                    }
+                    
+            except Exception as e:
+                add_event("connection_test_failed", {"error": str(e)})
+                return {
+                    "status": "error",
+                    "url": self.agent_url,
+                    "error": str(e)
+                }
 
 
 # Global instance

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 from enum import Enum
 
@@ -57,9 +57,30 @@ class AgentStatusResponse(BaseModel):
 
 # Optimization Models
 class OptimizationRequest(BaseModel):
-    optimization_type: str = "laptop_supply_chain"
+    # Support both frontend and backend field names
+    optimization_type: Optional[str] = "laptop_supply_chain"
+    scenario: Optional[str] = None  # Frontend sends this
     custom_prompt: Optional[str] = None
     parameters: Optional[Dict[str, Any]] = None
+    constraints: Optional[Union[List[str], Dict[str, Any]]] = None  # Support both List[str] and Dict
+    priority: Optional[str] = None
+    
+    @property
+    def effective_optimization_type(self) -> str:
+        """Get the effective optimization type, preferring scenario if provided"""
+        return self.scenario or self.optimization_type or "laptop_supply_chain"
+    
+    @property
+    def effective_constraints(self) -> List[str]:
+        """Get constraints as a list of strings"""
+        if not self.constraints:
+            return []
+        if isinstance(self.constraints, list):
+            return self.constraints
+        elif isinstance(self.constraints, dict):
+            # Convert dict constraints to list of strings
+            return [f"{key}: {value}" for key, value in self.constraints.items()]
+        return []
 
 class OptimizationProgress(BaseModel):
     request_id: str
