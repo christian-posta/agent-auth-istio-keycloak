@@ -25,15 +25,17 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             detail="Invalid or expired token"
         )
     
-    return payload
+    # Return both the payload and the raw token for use in downstream services
+    return {"payload": payload, "token": token}
 
-async def run_optimization_workflow(request_id: str, user_id: str, request: OptimizationRequest, trace_context: Any = None):
-    """Background task to run the optimization workflow using A2A agent with tracing"""
+async def run_optimization_workflow(request_id: str, user_id: str, request: OptimizationRequest, trace_context: Any = None, id_token: str = None):
+    """Background task to run the optimization workflow using A2A agent with tracing support"""
     with span("optimization_api.run_optimization_workflow", {
         "request_id": request_id,
         "user_id": user_id,
         "request_type": request.optimization_type,
-        "has_trace_context": trace_context is not None
+        "has_trace_context": trace_context is not None,
+        "has_id_token": id_token is not None
     }, parent_context=trace_context) as span_obj:
         
         try:
@@ -52,11 +54,11 @@ async def run_optimization_workflow(request_id: str, user_id: str, request: Opti
             print("📊 Progress updated: Connecting to A2A agent")
             add_event("progress_updated", {"step": "Connecting to A2A agent", "percentage": 0.0})
             
-            # Get response from A2A agent with tracing context
+            # Get response from A2A agent with tracing context and ID token
             print("🤖 Calling A2A service...")
             add_event("calling_a2a_service")
             
-            response = await a2a_service.optimize_supply_chain(request, user_id, trace_context)
+            response = await a2a_service.optimize_supply_chain(request, user_id, trace_context, id_token)
             print(f"📨 A2A service response: {response}")
             
             add_event("a2a_service_response_received", {
@@ -182,28 +184,48 @@ async def start_optimization(
                     add_event("trace_context_extracted_from_headers")
                     set_attribute("tracing.context_extracted", True)
             
-            print(f"🚀 Starting optimization for user: {current_user.get('sub')}")
+            # Get ID token from the X-ID-Token header for agent-to-agent authentication
+            id_token = None
+            if http_request:
+                id_token_header = http_request.headers.get("X-ID-Token")
+                if id_token_header:
+                    id_token = id_token_header
+                    add_event("id_token_extracted_for_agent_auth")
+                    set_attribute("jwt.id_token_extracted", True)
+                    print(f"🔐 ID token extracted for agent authentication: {id_token[:20]}...")
+                else:
+                    print("⚠️ No ID token found in X-ID-Token header, using access token as fallback")
+                    # Fallback to access token if ID token not available
+                    authorization_header = http_request.headers.get("Authorization")
+                    if authorization_header and authorization_header.startswith("Bearer "):
+                        id_token = authorization_header.replace("Bearer ", "")
+                        if id_token:
+                            add_event("access_token_used_as_fallback")
+                            set_attribute("jwt.fallback_to_access_token", True)
+            
+            print(f"🚀 Starting optimization for user: {current_user['payload'].get('sub')}")
             print(f"📝 Request: {request}")
             print(f"📝 Request type: {type(request)}")
             print(f"📝 Request fields: {request.model_dump()}")
             
             add_event("optimization_start_requested", {
-                "user_id": current_user.get("sub"),
+                "user_id": current_user['payload'].get("sub"),
                 "request_type": request.effective_optimization_type
             })
             
             # Create optimization request
-            request_id = optimization_service.create_optimization_request(request, current_user.get("sub"))
+            request_id = optimization_service.create_optimization_request(request, current_user['payload'].get("sub"))
             print(f"✅ Created optimization request: {request_id}")
             add_event("optimization_request_created", {"request_id": request_id})
             
-            # Add background task with tracing context
+            # Add background task with tracing context and ID token
             background_tasks.add_task(
                 run_optimization_workflow, 
                 request_id, 
-                current_user.get("sub"), 
+                current_user['payload'].get("sub"), 
                 request,
-                trace_context
+                trace_context,
+                id_token
             )
             print(f"🔄 Added background task for request: {request_id}")
             add_event("background_task_added", {"request_id": request_id})
@@ -241,7 +263,7 @@ async def get_optimization_progress(
     """Get progress of an optimization request with tracing support"""
     with span("optimization_api.get_progress", {
         "request_id": request_id,
-        "user_id": current_user.get("sub")
+        "user_id": current_user["payload"].get("sub")
     }) as span_obj:
         
         try:
@@ -253,7 +275,7 @@ async def get_optimization_progress(
                     add_event("trace_context_extracted_from_headers")
                     set_attribute("tracing.context_extracted", True)
             
-            add_event("progress_requested", {"request_id": request_id, "user_id": current_user.get("sub")})
+            add_event("progress_requested", {"request_id": request_id, "user_id": current_user["payload"].get("sub")})
             
             progress = optimization_service.get_optimization_progress(request_id)
             
@@ -285,7 +307,7 @@ async def get_optimization_results(
     """Get results of a completed optimization with tracing support"""
     with span("optimization_api.get_results", {
         "request_id": request_id,
-        "user_id": current_user.get("sub")
+        "user_id": current_user["payload"].get("sub")
     }) as span_obj:
         
         try:
@@ -300,7 +322,7 @@ async def get_optimization_results(
             print(f"🔍 Results endpoint called for request: {request_id}")
             print(f"👤 Current user: {current_user}")
             
-            add_event("results_requested", {"request_id": request_id, "user_id": current_user.get("sub")})
+            add_event("results_requested", {"request_id": request_id, "user_id": current_user["payload"].get("sub")})
             
             results = optimization_service.get_optimization_results(request_id)
             print(f"📋 Results returned from service: {results}")
@@ -333,7 +355,7 @@ async def get_all_optimizations(
 ):
     """Get all optimization requests for the current user with tracing support"""
     with span("optimization_api.get_all_optimizations", {
-        "user_id": current_user.get("sub")
+        "user_id": current_user["payload"].get("sub")
     }) as span_obj:
         
         try:
@@ -345,7 +367,7 @@ async def get_all_optimizations(
                     add_event("trace_context_extracted_from_headers")
                     set_attribute("tracing.context_extracted", True)
             
-            add_event("all_optimizations_requested", {"user_id": current_user.get("sub")})
+            add_event("all_optimizations_requested", {"user_id": current_user["payload"].get("sub")})
             
             # In a real application, you'd filter by user_id
             optimizations = optimization_service.get_all_optimizations()
@@ -367,7 +389,7 @@ async def clear_optimizations(
 ):
     """Clear all optimizations for the current user with tracing support"""
     with span("optimization_api.clear_optimizations", {
-        "user_id": current_user.get("sub")
+        "user_id": current_user["payload"].get("sub")
     }) as span_obj:
         
         try:
@@ -379,7 +401,7 @@ async def clear_optimizations(
                     add_event("trace_context_extracted_from_headers")
                     set_attribute("tracing.context_extracted", True)
             
-            add_event("clear_optimizations_requested", {"user_id": current_user.get("sub")})
+            add_event("clear_optimizations_requested", {"user_id": current_user["payload"].get("sub")})
             
             # Clear optimizations (this would typically be filtered by user_id in production)
             optimization_service.clear_optimizations()
@@ -401,11 +423,12 @@ async def test_a2a_connection(
 ):
     """Test connection to the A2A supply-chain agent with tracing support"""
     with span("optimization_api.test_a2a_connection", {
-        "user_id": current_user.get("sub")
+        "user_id": current_user["payload"].get("sub")
     }) as span_obj:
         
         try:
             # Extract trace context from headers if available
+            trace_context = None
             if http_request:
                 headers = dict(http_request.headers)
                 trace_context = extract_context_from_headers(headers)
@@ -413,9 +436,26 @@ async def test_a2a_connection(
                     add_event("trace_context_extracted_from_headers")
                     set_attribute("tracing.context_extracted", True)
             
-            add_event("a2a_connection_test_requested", {"user_id": current_user.get("sub")})
+            # Extract ID token from headers if available
+            id_token = None
+            if http_request:
+                id_token_header = http_request.headers.get("X-ID-Token")
+                if id_token_header:
+                    id_token = id_token_header
+                    add_event("id_token_extracted_for_agent_auth")
+                    set_attribute("jwt.id_token_extracted", True)
+                else:
+                    # Fallback to access token if ID token not available
+                    authorization_header = http_request.headers.get("Authorization")
+                    if authorization_header and authorization_header.startswith("Bearer "):
+                        id_token = authorization_header.replace("Bearer ", "")
+                        if id_token:
+                            add_event("access_token_used_as_fallback")
+                            set_attribute("jwt.fallback_to_access_token", True)
             
-            connection_status = await a2a_service.test_connection()
+            add_event("a2a_connection_test_requested", {"user_id": current_user["payload"].get("sub")})
+            
+            connection_status = await a2a_service.test_connection(id_token=id_token)
             
             add_event("a2a_connection_test_completed", {"status": connection_status.get("status")})
             return connection_status

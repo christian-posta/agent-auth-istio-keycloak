@@ -40,6 +40,11 @@ class ApiService {
       headers['Authorization'] = `Bearer ${token}`;
     }
     
+    // Add ID token for agent-to-agent authentication if available
+    if (this.keycloak && this.keycloak.idToken) {
+      headers['X-ID-Token'] = this.keycloak.idToken;
+    }
+    
     return headers;
   }
 

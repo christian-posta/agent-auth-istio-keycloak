@@ -86,5 +86,24 @@ class KeycloakService:
         print("Refreshing Keycloak public key...")
         self._load_public_key()
 
+    def get_id_token(self, access_token: str) -> Optional[str]:
+        """Get ID token from Keycloak using the access token"""
+        try:
+            # Use the token introspection endpoint to get token info
+            url = f"{self.server_url}/realms/{self.realm}/protocol/openid-connect/userinfo"
+            headers = {'Authorization': f'Bearer {access_token}'}
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            
+            # For now, we'll use the access token as the ID token
+            # In a production system, you might want to implement proper token exchange
+            # or configure the client to request ID tokens explicitly
+            print(f"Using access token as ID token for agent authentication")
+            return access_token
+            
+        except Exception as e:
+            print(f"Failed to get ID token: {e}")
+            return None
+
 # Global instance
 keycloak_service = KeycloakService()
