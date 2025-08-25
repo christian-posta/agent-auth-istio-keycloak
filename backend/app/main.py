@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.api import auth, agents, optimization
 from app.tracing_config import initialize_tracing
+from app.config import settings
 import os
 from dotenv import load_dotenv
 
@@ -34,14 +35,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # React dev server (default)
-        "http://localhost:3050",  # React dev server (custom port)
-        "http://127.0.0.1:3000", # Alternative localhost
-        "http://127.0.0.1:3050", # Alternative localhost
-        "http://localhost:5173",  # Vite dev server
-        "http://127.0.0.1:5173", # Alternative localhost
-    ],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
@@ -93,8 +87,8 @@ def main():
     import uvicorn
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
-        port=8000,
+        host=settings.host,
+        port=settings.port,
         reload=True,
         log_level="info"
     )
