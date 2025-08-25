@@ -85,7 +85,7 @@ const DelegationChain = ({ delegation }) => {
 };
 
 // Activity Feed Component
-const ActivityFeed = ({ activities, isRunning, error, onClear }) => {
+const ActivityFeed = ({ activities, isRunning, error, selectedActivityId, onActivitySelect, onClear }) => {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed':
@@ -133,7 +133,15 @@ const ActivityFeed = ({ activities, isRunning, error, onClear }) => {
         )}
         
         {activities.map((activity, index) => (
-          <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+          <div 
+            key={index} 
+            className={`flex items-start space-x-3 p-3 rounded-lg cursor-pointer transition-all duration-200 ${
+              selectedActivityId === activity.id 
+                ? 'bg-blue-100 border-2 border-blue-300 shadow-md' 
+                : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+            }`}
+            onClick={() => onActivitySelect(activity.id)}
+          >
             {getStatusIcon(activity.status)}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900">
@@ -141,6 +149,11 @@ const ActivityFeed = ({ activities, isRunning, error, onClear }) => {
               </p>
               <p className="text-xs text-gray-500">{activity.timestamp}</p>
             </div>
+            {selectedActivityId === activity.id && (
+              <div className="flex-shrink-0">
+                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+              </div>
+            )}
           </div>
         ))}
         
@@ -248,9 +261,13 @@ const Dashboard = () => {
     showResults,
     progress,
     results,
+    selectedActivityId,
     error,
     startOptimization,
-    clearOptimization
+    clearOptimization,
+    clearAllActivities,
+    selectActivity,
+    createResultsFromActivity
   } = useOptimization();
   
   const [optimizationPrompt, setOptimizationPrompt] = useState('');
@@ -274,7 +291,9 @@ const Dashboard = () => {
               activities={activities} 
               isRunning={isRunning} 
               error={error}
-              onClear={clearOptimization}
+              selectedActivityId={selectedActivityId}
+              onActivitySelect={selectActivity}
+              onClear={clearAllActivities}
             />
           </div>
 
@@ -344,45 +363,50 @@ const Dashboard = () => {
             </div>
 
             {/* Agent Responses Panel */}
-            {activities.length > 0 && (
+            {(() => {
+              console.log('🔍 Agent Responses Panel render check:');
+              console.log('  - selectedActivityId:', selectedActivityId);
+              console.log('  - activities.length:', activities.length);
+              console.log('  - activities:', activities);
+              return selectedActivityId && activities.length > 0;
+            })() && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center space-x-2">
                   <TrendingUp className="h-6 w-6 text-blue-600" />
-                  <span>Latest Agent Responses</span>
+                  <span>Selected Agent Response</span>
                 </h2>
                 
-                <div className="space-y-4">
-                  {activities
-                    .filter(activity => activity.action === 'supply_chain_optimization' && activity.details)
-                    .map((activity, index) => (
-                      <div key={index} className="border border-gray-200 rounded-lg p-4">
+                {(() => {
+                  const selectedActivity = activities.find(activity => activity.id === selectedActivityId);
+                  if (selectedActivity && selectedActivity.details) {
+                    return (
+                      <div className="border border-gray-200 rounded-lg p-4">
                         <div className="flex items-center justify-between mb-3">
                           <h3 className="text-lg font-medium text-gray-900">
                             Supply Chain Optimization Analysis
                           </h3>
                           <span className="text-sm text-gray-500">
-                            {new Date(activity.timestamp).toLocaleString()}
+                            {new Date(selectedActivity.timestamp).toLocaleString()}
                           </span>
                         </div>
                         
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                           <div className="prose prose-sm max-w-none">
                             <div className="whitespace-pre-wrap text-gray-800 font-mono text-sm leading-relaxed">
-                              {activity.details}
+                              {selectedActivity.details}
                             </div>
                           </div>
                         </div>
                       </div>
-                    ))}
-                </div>
-                
-                {activities.filter(activity => activity.action === 'supply_chain_optimization' && activity.details).length === 0 && (
-                  <div className="text-center text-gray-500 py-8">
-                    <TrendingUp className="h-12 w-12 text-gray-300 mx-auto mb-2" />
-                    <p>No agent responses yet</p>
-                    <p className="text-sm">Complete an optimization to see agent analysis</p>
-                  </div>
-                )}
+                    );
+                  }
+                  return (
+                    <div className="text-center text-gray-500 py-8">
+                      <TrendingUp className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                      <p>No response details available</p>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -411,3 +435,5 @@ const App = () => {
 };
 
 export default App;
+
+
