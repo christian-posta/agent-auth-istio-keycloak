@@ -33,6 +33,16 @@ async def root():
 async def health_check():
     return {"status": "healthy", "service": "supply-chain-api"}
 
-if __name__ == "__main__":
+def main():
+    """Main function to run the FastAPI server with uvicorn"""
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )
+
+if __name__ == "__main__":
+    main()

@@ -33,19 +33,20 @@ This is the Python FastAPI backend for the Supply Chain Agent system.
 
 ## Setup
 
-1. **Activate virtual environment** (from project root):
+1. **Install uv** (if not already installed):
    ```bash
-   source .venv/bin/activate
+   pip install uv
    ```
 
-2. **Install dependencies**:
+2. **Run the server with uv**:
    ```bash
-   pip install -r requirements.txt
+   cd backend
+   uv run run_server.py
    ```
 
-2. **Run the server**:
+   Or run the app module directly:
    ```bash
-   python run.py
+   uv run -m app.main
    ```
 
    Or with uvicorn directly:
