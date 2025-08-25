@@ -6,7 +6,7 @@ from app.models import (
     OptimizationRequest, OptimizationProgress, OptimizationResults
 )
 from app.services.optimization_service import optimization_service
-from app.services.agent_service import agent_service
+from app.services.a2a_service import a2a_service
 from app.services.keycloak_service import keycloak_service
 
 router = APIRouter()
@@ -25,29 +25,59 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     
     return payload
 
-async def run_optimization_workflow(request_id: str, user_id: str):
-    """Background task to run the optimization workflow"""
+async def run_optimization_workflow(request_id: str, user_id: str, request: OptimizationRequest):
+    """Background task to run the optimization workflow using A2A agent"""
     try:
         # Update progress to running
-        optimization_service.update_progress(request_id, 0.0, "Starting agent workflow")
+        optimization_service.update_progress(request_id, 0.0, "Connecting to A2A supply-chain agent")
         
-        # Run the agent workflow
-        activities = await agent_service.simulate_agent_workflow(user_id)
+        # Collect all responses from the A2A agent
+        responses = []
+        progress_count = 0
         
-        # Update progress as agents complete
-        total_steps = len(activities)
-        for i, activity in enumerate(activities):
-            progress = ((i + 1) / total_steps) * 100
-            step_name = f"Completed: {activity.agent} - {activity.action}"
-            optimization_service.update_progress(request_id, progress, step_name)
-            await asyncio.sleep(0.5)  # Small delay for progress updates
+        async for response in a2a_service.optimize_supply_chain(request, user_id):
+            if response["type"] == "progress":
+                # Update progress
+                progress_count += 1
+                progress_percentage = min(progress_count * 20, 90)  # Cap at 90% until completion
+                optimization_service.update_progress(
+                    request_id, 
+                    progress_percentage, 
+                    response["message"]
+                )
+                responses.append(response)
+                
+            elif response["type"] == "error":
+                # Handle error
+                optimization_service.update_progress(request_id, 0.0, f"Error: {response['message']}")
+                return
         
         # Mark optimization as completed
+        optimization_service.update_progress(request_id, 100.0, "Optimization completed by A2A agent")
+        
+        # Create mock activities from responses for now (can be enhanced later)
+        from app.models import AgentActivity, DelegationChain
+        activities = []
+        for i, response in enumerate(responses):
+            activity = AgentActivity(
+                id=i + 1,
+                timestamp=response["timestamp"],
+                agent="a2a-supply-chain-agent",
+                action="optimization_step",
+                delegation=DelegationChain(sub=user_id, aud="a2a-agent", scope="supply-chain:optimize"),
+                status="completed",
+                details=response["message"]
+            )
+            activities.append(activity)
+        
         optimization_service.complete_optimization(request_id, activities)
         
     except Exception as e:
-        # In a real application, you'd want better error handling
+        # Update progress with error
         optimization_service.update_progress(request_id, 0.0, f"Error: {str(e)}")
+        # Mark as failed
+        if request_id in optimization_service.optimizations:
+            optimization_service.optimizations[request_id].status = "failed"
 
 @router.post("/start", response_model=dict)
 async def start_optimization(
@@ -61,7 +91,7 @@ async def start_optimization(
     request_id = optimization_service.create_optimization_request(request, user_id)
     
     # Start background task for optimization
-    background_tasks.add_task(run_optimization_workflow, request_id, user_id)
+    background_tasks.add_task(run_optimization_workflow, request_id, user_id, request)
     
     return {
         "request_id": request_id,
@@ -113,3 +143,16 @@ async def clear_optimizations(current_user: dict = Depends(get_current_user)):
     """Clear all optimizations (useful for testing)"""
     optimization_service.clear_optimizations()
     return {"message": "All optimizations cleared"}
+
+@router.get("/test-a2a-connection")
+async def test_a2a_connection(current_user: dict = Depends(get_current_user)):
+    """Test connection to the A2A supply-chain agent"""
+    try:
+        connection_status = await a2a_service.test_connection()
+        return connection_status
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "url": a2a_service.agent_url
+        }

@@ -22,5 +22,8 @@ class Settings:
     # Agent Configuration
     max_concurrent_agents: int = 5
     agent_timeout_seconds: int = 300
+    
+    # A2A Configuration
+    supply_chain_agent_url: str = os.getenv("SUPPLY_CHAIN_AGENT_URL", "http://supply-chain-agent.localhost:3000")
 
 settings = Settings()
