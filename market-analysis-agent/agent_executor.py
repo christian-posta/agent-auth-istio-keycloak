@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.utils import new_agent_text_message
+from a2a.client.middleware import ClientCallInterceptor, ClientCallContext
 
 from business_policies import (
     market_analysis_policies,
@@ -50,6 +51,7 @@ class MarketAnalysisAgent:
         
         self.policies = market_analysis_policies
         self.analysis_history = []
+        self.jwt_token: str | None = None  # Initialize jwt_token attribute
 
     async def invoke(self, request_text: str = "") -> str:
         """Main entry point for market analysis requests."""
@@ -114,7 +116,13 @@ class MarketAnalysisAgent:
     async def _discover_mcp_tools(self) -> List[Dict[str, Any]]:
         """Discover available tools from MCP servers."""
         try:
-            async with MCPClient() as mcp_client:
+            # Pass JWT token to MCP client if available
+            mcp_client_kwargs = {}
+            if self.jwt_token:
+                mcp_client_kwargs['jwt_token'] = self.jwt_token
+                print(f"🔐 Passing JWT token to MCP client for authenticated calls")
+            
+            async with MCPClient(**mcp_client_kwargs) as mcp_client:
                 tools = await mcp_client.discover_tools()
                 return tools
         except Exception as e:
@@ -213,6 +221,36 @@ Consider integrating with procurement systems for automated order processing.
         return response
 
 
+class JWTInterceptor(ClientCallInterceptor):
+    """Interceptor that injects JWT authentication into HTTP requests."""
+    
+    def __init__(self, jwt_token: str):
+        self.jwt_token = jwt_token
+    
+    async def intercept(
+        self,
+        method_name: str,
+        request_payload: dict[str, Any],
+        http_kwargs: dict[str, Any],
+        agent_card: Any | None,
+        context: ClientCallContext | None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Inject JWT authorization header into the HTTP request."""
+        headers = http_kwargs.get('headers', {})
+        
+        # Add Authorization header with Bearer token
+        headers['Authorization'] = f'Bearer {self.jwt_token}'
+        
+        # Update the headers in http_kwargs
+        http_kwargs['headers'] = headers
+        
+        print(f"🔐 JWTInterceptor: Injected Authorization header with Bearer token")
+        print(f"🔐 Token length: {len(self.jwt_token)} characters")
+        print(f"🔐 Token first 50 chars: {self.jwt_token[:50]}...")
+        
+        return request_payload, http_kwargs
+
+
 class MarketAnalysisAgentExecutor(AgentExecutor):
     """Market Analysis Agent Executor for A2A integration."""
 
@@ -282,6 +320,36 @@ class MarketAnalysisAgentExecutor(AgentExecutor):
                 print(f"🔍 context.metadata dir: {dir(context.metadata)}")
                 print(f"🔍 context.metadata content: {context.metadata}")
         
+        # Extract JWT token from Authorization header if available
+        jwt_token = None
+        if headers:
+            # Look for Authorization header with Bearer token
+            auth_header = None
+            for key, value in headers.items():
+                if key.lower() == 'authorization':
+                    auth_header = value
+                    break
+            
+            if auth_header and auth_header.startswith('Bearer '):
+                jwt_token = auth_header[7:]  # Remove 'Bearer ' prefix
+                print(f"🔐 JWT token extracted from Authorization header")
+                print(f"🔐 Full JWT token: {jwt_token}")
+                print(f"🔐 JWT token length: {len(jwt_token)} characters")
+                print(f"🔐 JWT token first 50 chars: {jwt_token[:50]}...")
+                print(f"🔐 JWT token last 50 chars: ...{jwt_token[-50:]}")
+                set_attribute("auth.jwt_extracted", True)
+                add_event("jwt_token_extracted")
+            else:
+                print(f"❌ No valid Authorization header found in headers")
+                print(f"🔍 Available headers: {list(headers.keys())}")
+                if auth_header:
+                    print(f"🔍 Authorization header found but doesn't start with 'Bearer ': {auth_header}")
+                set_attribute("auth.jwt_extracted", False)
+                add_event("jwt_token_not_found")
+        else:
+            print(f"❌ No headers available for JWT extraction")
+            set_attribute("auth.jwt_extracted", False)
+        
         # Extract trace context from headers if available
         trace_context = None
         if headers:
@@ -307,19 +375,20 @@ class MarketAnalysisAgentExecutor(AgentExecutor):
         if trace_context:
             with span("market_analysis_agent.executor.execute", parent_context=trace_context) as span_obj:
                 print(f"🔗 Creating child span with parent context")
-                await self._execute_with_tracing(context, event_queue, span_obj)
+                await self._execute_with_tracing(context, event_queue, span_obj, jwt_token)
         else:
             with span("market_analysis_agent.executor.execute") as span_obj:
                 print(f"🔗 Creating root span (no parent context)")
                 add_event("no_trace_context_provided")
                 set_attribute("tracing.context_extracted", False)
-                await self._execute_with_tracing(context, event_queue, span_obj)
+                await self._execute_with_tracing(context, event_queue, span_obj, jwt_token)
     
     async def _execute_with_tracing(
         self,
         context: RequestContext,
         event_queue: EventQueue,
-        span_obj
+        span_obj,
+        jwt_token: str | None
     ):
         """Execute with tracing support."""
         # Extract request text from context if available
@@ -339,6 +408,20 @@ class MarketAnalysisAgentExecutor(AgentExecutor):
         set_attribute("request.has_content", bool(request_text))
         
         try:
+            # Store JWT token in agent instance for later use in a2a calls
+            if jwt_token:
+                self.agent.jwt_token = jwt_token
+                print(f"🔐 JWT token stored in agent instance for a2a calls")
+                print(f"🔐 Stored token length: {len(jwt_token)} characters")
+                print(f"🔐 Stored token first 50 chars: {jwt_token[:50]}...")
+                print(f"🔐 Stored token last 50 chars: ...{jwt_token[-50:]}")
+                add_event("jwt_token_stored_in_agent")
+                set_attribute("auth.jwt_stored", True)
+            else:
+                print(f"⚠️  No JWT token available for a2a calls")
+                add_event("no_jwt_token_for_a2a")
+                set_attribute("auth.jwt_stored", False)
+            
             result = await self.agent.invoke(request_text)
             add_event("agent_invoke_successful")
             await event_queue.enqueue_event(new_agent_text_message(result))

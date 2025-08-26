@@ -60,6 +60,12 @@ binds:
             - "*"
           allowHeaders:
             - "*"
+        jwtAuth:
+          mode: strict
+          issuer: http://localhost:8080/realms/mcp-realm
+          audiences: [agentgateway]
+          jwks:
+            url: http://localhost:8080/realms/mcp-realm/protocol/openid-connect/certs             
       backends:
       - mcp:
           targets:
