@@ -132,13 +132,23 @@ if __name__ == '__main__':
         service_name="market-analysis-agent",
         jaeger_host=jaeger_host,
         jaeger_port=jaeger_port,
-        enable_console_exporter=True
+        enable_console_exporter=None  # Will use environment variable ENABLE_CONSOLE_EXPORTER
     )
+    
+    # Check console exporter status
+    console_exporter_enabled = os.getenv("ENABLE_CONSOLE_EXPORTER", "true").lower() == "true"
     
     if jaeger_host:
         print(f"🔗 Tracing configured with OTLP at {jaeger_host}:{jaeger_port}")
+        if console_exporter_enabled:
+            print("🔗 Console trace span logging: ENABLED")
+        else:
+            print("🔗 Console trace span logging: DISABLED")
     else:
-        print("🔗 Tracing configured with console exporter only")
+        if console_exporter_enabled:
+            print("🔗 Tracing configured with console exporter only")
+        else:
+            print("🔗 Tracing configured with console exporter DISABLED")
 
     # Start the server on port 9998 (different from supply-chain-agent's 9999)
     print("🚀 Starting Market Analysis Agent on http://localhost:9998")

@@ -68,11 +68,21 @@ class TracingConfig:
     def initialize(self, service_name: str = "market-analysis-agent", 
                    jaeger_host: Optional[str] = None, 
                    jaeger_port: int = 4317,
-                   enable_console_exporter: bool = True):
+                   enable_console_exporter: bool = None):
         """Initialize OpenTelemetry tracing."""
         if not OTEL_AVAILABLE:
             logging.warning("OpenTelemetry not available, using no-op tracing")
             return
+        
+        # Check environment variable for console exporter if not explicitly set
+        if enable_console_exporter is None:
+            enable_console_exporter = os.getenv("ENABLE_CONSOLE_EXPORTER", "true").lower() == "true"
+        
+        # Log the console exporter status
+        if enable_console_exporter:
+            logging.info("Console trace span logging: ENABLED")
+        else:
+            logging.info("Console trace span logging: DISABLED")
             
         try:
             # Create resource with service name
@@ -292,7 +302,7 @@ _tracing_config = TracingConfig()
 def initialize_tracing(service_name: str = "market-analysis-agent",
                       jaeger_host: Optional[str] = None,
                       jaeger_port: int = 4317,
-                      enable_console_exporter: bool = True):
+                      enable_console_exporter: bool = None):
     """Initialize tracing configuration."""
     _tracing_config.initialize(service_name, jaeger_host, jaeger_port, enable_console_exporter)
 
