@@ -67,6 +67,7 @@ manifest: ## Create Kubernetes manifests
 	@echo '  - protocol: TCP' >> manifests/deployment.yaml
 	@echo '    port: 80' >> manifests/deployment.yaml
 	@echo '    targetPort: 9999' >> manifests/deployment.yaml
+	@echo '    appProtocol: kgateway.dev/a2a' >> manifests/deployment.yaml
 	@echo '  type: ClusterIP' >> manifests/deployment.yaml
 	@echo "Manifests created in manifests/ directory"
 
