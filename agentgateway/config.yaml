@@ -17,6 +17,8 @@ binds:
           audiences: [agentgateway]
           jwks:
             url: http://localhost:8080/realms/mcp-realm/protocol/openid-connect/certs        
+        backendAuth:
+          passthrough: {}
         authorization:
           rules:
           - 'jwt.preferred_username == "mcp-user"'
@@ -33,6 +35,12 @@ binds:
     - policies:
         # Mark this route as a2a traffic
         a2a: {}
+        jwtAuth:
+          mode: strict
+          issuer: http://localhost:8080/realms/mcp-realm
+          audiences: [agentgateway]
+          jwks:
+            url: http://localhost:8080/realms/mcp-realm/protocol/openid-connect/certs             
         cors:
           allowOrigins:
             - "*"
@@ -63,23 +71,9 @@ binds:
             stdio:
               cmd: npx
               args: ["@modelcontextprotocol/server-everything"]
-    
-    - name: git-mcp
-      matches:
-      - path:
-          pathPrefix: /git/mcp
-      policies:
-        cors:
-          allowOrigins:
-            - "*"
-          allowHeaders:
-            - "*"
-      backends:
-      - mcp:
-          targets:
-          - name: github
+          - name: mcp-sequential-thinking
             stdio:
               cmd: npx
-              args: ["@modelcontextprotocol/server-github"]
-              env:
-                GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_AIRE_PAT}
+              args: ["@modelcontextprotocol/server-sequential-thinking"]              
+    
+
