@@ -32,7 +32,7 @@ spec:
         - name: SUPPLY_CHAIN_AGENT_URL
           value: "http://supply-chain-agent.default/"
         - name: KEYCLOAK_URL
-          value: "http://keycloak.keycloak:8080"
+          value: "http://host.docker.internal:8080"
         - name: KEYCLOAK_REALM
           value: "mcp-realm"
         - name: KEYCLOAK_CLIENT_ID
