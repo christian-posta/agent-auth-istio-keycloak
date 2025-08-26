@@ -21,6 +21,14 @@ spec:
         ports:
         - containerPort: 9998
         env:
+        - name: MCP_SERVER_BASE_URL
+          value: "http://company-mcp.default:3000"
+        - name: MCP_SERVER_PATH
+          value: "/general/mcp"
+        - name: MCP_CONNECTION_TIMEOUT
+          value: "30"
+        - name: MCP_READ_TIMEOUT
+          value: "60"
         - name: JAEGER_HOST
           value: "jaeger-collector.istio-system"
         - name: JAEGER_PORT

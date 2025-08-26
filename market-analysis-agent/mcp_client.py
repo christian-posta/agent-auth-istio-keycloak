@@ -18,12 +18,6 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Configuration from environment variables
-MCP_SERVER_BASE_URL = os.getenv("MCP_SERVER_BASE_URL", "http://localhost:3000")
-MCP_SERVER_PATH = os.getenv("MCP_SERVER_PATH", "/general/mcp")
-MCP_CONNECTION_TIMEOUT = int(os.getenv("MCP_CONNECTION_TIMEOUT", "30"))
-MCP_READ_TIMEOUT = int(os.getenv("MCP_READ_TIMEOUT", "60"))
-
 
 def validate_mcp_url(base_url: str, path: str) -> bool:
     """Validate that the MCP server URL is properly formatted."""
@@ -51,10 +45,11 @@ class MCPClient:
     
     def __init__(self, base_url: str = None, mcp_path: str = None, 
                  connection_timeout: int = None, read_timeout: int = None):
-        self.base_url = base_url or MCP_SERVER_BASE_URL
-        self.mcp_path = mcp_path or MCP_SERVER_PATH
-        self.connection_timeout = connection_timeout or MCP_CONNECTION_TIMEOUT
-        self.read_timeout = read_timeout or MCP_READ_TIMEOUT
+        # Read environment variables at runtime when they are available
+        self.base_url = base_url or os.getenv("MCP_SERVER_BASE_URL", "http://localhost:3000")
+        self.mcp_path = mcp_path or os.getenv("MCP_SERVER_PATH", "/general/mcp")
+        self.connection_timeout = connection_timeout or int(os.getenv("MCP_CONNECTION_TIMEOUT", "30"))
+        self.read_timeout = read_timeout or int(os.getenv("MCP_READ_TIMEOUT", "60"))
         
         # Validate the URL configuration
         if not validate_mcp_url(self.base_url, self.mcp_path):
