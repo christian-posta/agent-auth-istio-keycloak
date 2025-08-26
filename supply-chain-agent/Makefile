@@ -29,7 +29,14 @@ kind-load: ## Load the Docker image into kind cluster
 manifest: ## Create Kubernetes manifests
 	@echo "Creating Kubernetes manifests..."
 	@mkdir -p manifests
-	@echo 'apiVersion: apps/v1' > manifests/deployment.yaml
+	@echo 'apiVersion: v1' > manifests/deployment.yaml
+	@echo 'kind: ServiceAccount' >> manifests/deployment.yaml
+	@echo 'metadata:' >> manifests/deployment.yaml
+	@echo '  name: $(IMAGE_NAME)' >> manifests/deployment.yaml
+	@echo '  labels:' >> manifests/deployment.yaml
+	@echo '    app: $(IMAGE_NAME)' >> manifests/deployment.yaml
+	@echo '---' >> manifests/deployment.yaml
+	@echo 'apiVersion: apps/v1' >> manifests/deployment.yaml
 	@echo 'kind: Deployment' >> manifests/deployment.yaml
 	@echo 'metadata:' >> manifests/deployment.yaml
 	@echo '  name: $(IMAGE_NAME)' >> manifests/deployment.yaml
@@ -45,6 +52,7 @@ manifest: ## Create Kubernetes manifests
 	@echo '      labels:' >> manifests/deployment.yaml
 	@echo '        app: $(IMAGE_NAME)' >> manifests/deployment.yaml
 	@echo '    spec:' >> manifests/deployment.yaml
+	@echo '      serviceAccountName: $(IMAGE_NAME)' >> manifests/deployment.yaml
 	@echo '      containers:' >> manifests/deployment.yaml
 	@echo '      - name: $(IMAGE_NAME)' >> manifests/deployment.yaml
 	@echo '        image: $(FULL_IMAGE_NAME)' >> manifests/deployment.yaml

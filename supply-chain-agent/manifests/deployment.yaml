@@ -1,3 +1,10 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: supply-chain-agent
+  labels:
+    app: supply-chain-agent
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,6 +21,7 @@ spec:
       labels:
         app: supply-chain-agent
     spec:
+      serviceAccountName: supply-chain-agent
       containers:
       - name: supply-chain-agent
         image: supply-chain-agent:latest
@@ -47,6 +55,8 @@ spec:
           value: "http://localhost:9999/"
         - name: ENVIRONMENT
           value: "development"
+        - name: ENABLE_CONSOLE_EXPORTER
+          value: "false"
 ---
 apiVersion: v1
 kind: Service

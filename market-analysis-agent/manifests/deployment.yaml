@@ -1,3 +1,10 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: market-analysis-agent
+  labels:
+    app: market-analysis-agent
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,6 +21,7 @@ spec:
       labels:
         app: market-analysis-agent
     spec:
+      serviceAccountName: market-analysis-agent
       containers:
       - name: market-analysis-agent
         image: market-analysis-agent:latest
@@ -39,6 +47,8 @@ spec:
           value: "1.0"
         - name: OTEL_TRACES_SAMPLER_PARENT_BASED
           value: "true"
+        - name: ENABLE_CONSOLE_EXPORTER
+          value: "false"
 ---
 apiVersion: v1
 kind: Service
