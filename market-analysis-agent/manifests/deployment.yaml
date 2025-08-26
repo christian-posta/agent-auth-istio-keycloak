@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: market-analysis-agent
+  labels:
+    app: market-analysis-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: market-analysis-agent
+  template:
+    metadata:
+      labels:
+        app: market-analysis-agent
+    spec:
+      containers:
+      - name: market-analysis-agent
+        image: market-analysis-agent:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 9998
+        env:
+        - name: JAEGER_HOST
+          value: "jaeger-collector.istio-system"
+        - name: JAEGER_PORT
+          value: "4317"
+        - name: OTEL_TRACES_SAMPLER
+          value: "parentbased_traceidratio"
+        - name: OTEL_TRACES_SAMPLER_ARG
+          value: "1.0"
+        - name: OTEL_TRACES_SAMPLER_PARENT_BASED
+          value: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: market-analysis-agent
+  labels:
+        app: market-analysis-agent
+spec:
+  selector:
+        app: market-analysis-agent
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 9998
+  type: ClusterIP
