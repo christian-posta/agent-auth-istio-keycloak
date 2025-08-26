@@ -19,6 +19,14 @@ build: ## Build the Docker image
 	docker build -t $(FULL_IMAGE_NAME) .
 	@echo "Build complete!"
 
+.PHONY: push-to-docker
+push-to-docker: build ## Build and push Docker image to Docker Hub
+	@echo "Tagging image for Docker Hub..."
+	docker tag $(FULL_IMAGE_NAME) ceposta/$(IMAGE_NAME):$(IMAGE_TAG)
+	@echo "Pushing image to Docker Hub..."
+	docker push ceposta/$(IMAGE_NAME):$(IMAGE_TAG)
+	@echo "Push complete! Image available at: ceposta/$(IMAGE_NAME):$(IMAGE_TAG)"
+
 .PHONY: kind-load
 kind-load: ## Load the Docker image into kind cluster
 	@echo "Loading image into kind cluster '$(KIND_CLUSTER)': $(FULL_IMAGE_NAME)"
