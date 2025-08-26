@@ -64,10 +64,20 @@ class TracingConfig:
     def initialize(self, service_name: str = "supply-chain-agent", 
                   jaeger_host: Optional[str] = None, 
                   jaeger_port: int = 4317,
-                  enable_console_exporter: bool = True):
+                  enable_console_exporter: bool = None):
         """Initialize the tracing system."""
         if self._initialized:
             return
+        
+        # Check environment variable for console exporter if not explicitly set
+        if enable_console_exporter is None:
+            enable_console_exporter = os.getenv("ENABLE_CONSOLE_EXPORTER", "true").lower() == "true"
+        
+        # Log the console exporter status
+        if enable_console_exporter:
+            logger.info("Console trace span logging: ENABLED")
+        else:
+            logger.info("Console trace span logging: DISABLED")
         
         try:
             # Create resource
@@ -355,7 +365,7 @@ tracing_config = TracingConfig()
 def initialize_tracing(service_name: str = "supply-chain-agent", 
                       jaeger_host: Optional[str] = None,
                       jaeger_port: int = 6831,
-                      enable_console_exporter: bool = True):
+                      enable_console_exporter: bool = None):
     """Initialize the global tracing configuration."""
     tracing_config.initialize(service_name, jaeger_host, jaeger_port, enable_console_exporter)
 

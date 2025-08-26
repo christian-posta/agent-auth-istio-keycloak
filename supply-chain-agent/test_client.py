@@ -509,7 +509,7 @@ async def test_tracing_functionality():
         # Initialize tracing
         initialize_tracing(
             service_name="test-supply-chain-agent",
-            enable_console_exporter=True
+            enable_console_exporter=None  # Will use environment variable ENABLE_CONSOLE_EXPORTER
         )
         print("✅ Tracing Initialized!")
         

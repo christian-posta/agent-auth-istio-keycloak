@@ -77,7 +77,7 @@ class SupplyChainOptimizerAgent:
             service_name="supply-chain-agent",
             jaeger_host=os.getenv("JAEGER_HOST"),
             jaeger_port=int(os.getenv("JAEGER_PORT", "4317")),
-            enable_console_exporter=True
+            enable_console_exporter=None  # Will use environment variable ENABLE_CONSOLE_EXPORTER
         )
         
         # Use business policies from configuration

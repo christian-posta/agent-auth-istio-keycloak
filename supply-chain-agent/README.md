@@ -52,6 +52,20 @@ cp .env.example .env
 - **`SUPPLY_CHAIN_AGENT_PORT`**: Port for this agent to run on (default: `9999`)
 - **`SUPPLY_CHAIN_AGENT_URL`**: External URL for this agent (default: `http://localhost:{port}/`)
 
+### Tracing Configuration
+
+The agent includes comprehensive OpenTelemetry tracing support with configurable console output:
+
+- **`ENABLE_CONSOLE_EXPORTER`**: Control console trace span logging (default: `true`)
+  - Set to `false` to disable console output while keeping tracing functionality
+  - Useful for production environments where you want tracing but not console noise
+  - Case insensitive: `true`, `false`, `TRUE`, `FALSE` all work
+- **`JAEGER_HOST`**: Jaeger collector host for distributed tracing (default: not set)
+- **`JAEGER_PORT`**: Jaeger collector port (default: `4317`)
+- **`ENVIRONMENT`**: Deployment environment (default: `development`)
+
+**Note**: Console trace span logging can be disabled independently of tracing functionality. When disabled, spans are still created and can be exported to Jaeger or other backends, but won't appear in the console output.
+
 ### Example .env file
 
 ```env
@@ -85,7 +99,24 @@ This will run a comprehensive test suite that:
 - Checks agent capabilities and skills
 - Demonstrates different input formats
 
-### 3. Example Requests
+### 3. Test Console Exporter Control
+
+Test the new console trace span logging control:
+
+```bash
+# Test with console exporter enabled (default)
+uv run test_console_exporter.py
+
+# Test with console exporter disabled
+ENABLE_CONSOLE_EXPORTER=false uv run test_console_exporter.py
+
+# Test with case insensitive values
+ENABLE_CONSOLE_EXPORTER=FALSE uv run test_console_exporter.py
+```
+
+This demonstrates how the `ENABLE_CONSOLE_EXPORTER` environment variable controls console output while preserving tracing functionality.
+
+### 4. Example Requests
 
 #### Natural Language
 ```
