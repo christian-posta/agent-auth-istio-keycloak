@@ -4,6 +4,7 @@ import { useKeycloak } from './hooks/useKeycloak';
 import { useOptimization } from './hooks/useOptimization';
 import Login from './components/Login';
 import UserDropdown from './components/UserDropdown';
+import MarkdownRenderer from './components/MarkdownRenderer';
 import apiService from './api';
 
 // Loading component
@@ -226,28 +227,33 @@ const ResultsPanel = ({ results, isVisible }) => {
         </div>
       </div>
       
-      {/* Detailed Results */}
-      {results.recommendations && (
-        <div className="mt-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-3">Recommendations</h3>
-          <div className="space-y-2">
-            {results.recommendations.map((rec, index) => (
-              <div key={index} className="flex items-start space-x-2 p-3 bg-gray-50 rounded-lg">
-                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{rec.title}</p>
-                  <p className="text-sm text-gray-600">{rec.description}</p>
-                  {rec.impact && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Impact: {rec.impact}
-                    </p>
-                  )}
+              {/* Detailed Results */}
+        {results.recommendations && (
+          <div className="mt-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-3">Recommendations</h3>
+            <div className="space-y-2">
+              {results.recommendations.map((rec, index) => (
+                <div key={index} className="flex items-start space-x-2 p-3 bg-gray-50 rounded-lg">
+                  <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">
+                      <MarkdownRenderer content={rec.title} showToggle={false} />
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <MarkdownRenderer content={rec.description} showToggle={false} />
+                    </div>
+                    {rec.impact && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        <span className="font-medium">Impact: </span>
+                        <MarkdownRenderer content={rec.impact} showToggle={false} />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 };
@@ -391,11 +397,10 @@ const Dashboard = () => {
                         </div>
                         
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <div className="prose prose-sm max-w-none">
-                            <div className="whitespace-pre-wrap text-gray-800 font-mono text-sm leading-relaxed">
-                              {selectedActivity.details}
-                            </div>
-                          </div>
+                          <MarkdownRenderer 
+                            content={selectedActivity.details}
+                            className="max-w-none"
+                          />
                         </div>
                       </div>
                     );
