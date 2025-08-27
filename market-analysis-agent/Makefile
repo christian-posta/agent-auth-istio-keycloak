@@ -6,26 +6,67 @@ IMAGE_NAME ?= market-analysis-agent
 IMAGE_TAG ?= latest
 KIND_CLUSTER ?= kagent
 FULL_IMAGE_NAME = $(IMAGE_NAME):$(IMAGE_TAG)
+PLATFORMS ?= linux/amd64,linux/arm64
 
 # Default target
 .PHONY: help
 help: ## Show this help message
 	@echo "Available targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Build types:"
+	@echo "  build               - Build multi-arch for ARM64 + AMD64 (DEFAULT)"
+	@echo "  build-single       - Build for current platform only"
+	@echo "  build-multiarch-push - Build and push multi-arch to registry"
+	@echo "  push-to-docker     - Build multi-arch and push to Docker Hub (DEFAULT)"
+	@echo "  push-to-docker-multiarch - Build and push multi-arch to Docker Hub"
 
 .PHONY: build
-build: ## Build the Docker image
-	@echo "Building Docker image: $(FULL_IMAGE_NAME)"
+build: ## Build multi-architecture Docker image (ARM64 + AMD64) - DEFAULT
+	@echo "Building multi-architecture Docker image: $(FULL_IMAGE_NAME)"
+	@echo "Targeting platforms: $(PLATFORMS)"
+	@if ! docker buildx version >/dev/null 2>&1; then \
+		echo "Error: Docker buildx is not available. Please enable buildx or upgrade Docker."; \
+		exit 1; \
+	fi
+	docker buildx build --platform $(PLATFORMS) -t $(FULL_IMAGE_NAME) --load .
+	@echo "Multi-architecture build complete!"
+
+.PHONY: build-single
+build-single: ## Build the Docker image for current platform only
+	@echo "Building Docker image for current platform: $(FULL_IMAGE_NAME)"
 	docker build -t $(FULL_IMAGE_NAME) .
-	@echo "Build complete!"
+	@echo "Single-platform build complete!"
+
+.PHONY: build-multiarch-push
+build-multiarch-push: ## Build and push multi-architecture image to registry
+	@echo "Building and pushing multi-architecture Docker image: $(FULL_IMAGE_NAME)"
+	@echo "Targeting platforms: $(PLATFORMS)"
+	@if ! docker buildx version >/dev/null 2>&1; then \
+		echo "Error: Docker buildx is not available. Please enable buildx or upgrade Docker."; \
+		exit 1; \
+	fi
+	docker buildx build --platform $(PLATFORMS) -t $(FULL_IMAGE_NAME) --push .
+	@echo "Multi-architecture build and push complete!"
 
 .PHONY: push-to-docker
-push-to-docker: build ## Build and push Docker image to Docker Hub
-	@echo "Tagging image for Docker Hub..."
+push-to-docker: build ## Build and push multi-architecture Docker image to Docker Hub - DEFAULT
+	@echo "Tagging multi-architecture image for Docker Hub..."
 	docker tag $(FULL_IMAGE_NAME) ceposta/$(IMAGE_NAME):$(IMAGE_TAG)
-	@echo "Pushing image to Docker Hub..."
+	@echo "Pushing multi-architecture image to Docker Hub..."
 	docker push ceposta/$(IMAGE_NAME):$(IMAGE_TAG)
-	@echo "Push complete! Image available at: ceposta/$(IMAGE_NAME):$(IMAGE_TAG)"
+	@echo "Push complete! Multi-architecture image available at: ceposta/$(IMAGE_NAME):$(IMAGE_TAG)"
+
+.PHONY: push-to-docker-multiarch
+push-to-docker-multiarch: ## Build and push multi-architecture image to Docker Hub
+	@echo "Building and pushing multi-architecture image to Docker Hub..."
+	@echo "Targeting platforms: $(PLATFORMS)"
+	@if ! docker buildx version >/dev/null 2>&1; then \
+		echo "Error: Docker buildx is not available. Please enable buildx or upgrade Docker."; \
+		exit 1; \
+	fi
+	docker buildx build --platform $(PLATFORMS) -t ceposta/$(IMAGE_NAME):$(IMAGE_TAG) --push .
+	@echo "Multi-architecture push complete! Image available at: ceposta/$(IMAGE_NAME):$(IMAGE_TAG)"
 
 .PHONY: kind-load
 kind-load: ## Load the Docker image into kind cluster
@@ -88,7 +129,7 @@ manifest: ## Create Kubernetes manifests
 	@echo "Manifests created in manifests/ directory"
 
 .PHONY: deploy
-deploy: kind-load manifest ## Deploy to Kubernetes (automatically loads image and creates manifests)
+deploy: build kind-load manifest ## Deploy to Kubernetes (automatically builds multi-arch image, loads image and creates manifests)
 	@echo "Deploying $(IMAGE_NAME) to Kubernetes..."
 	@if ! command -v kubectl >/dev/null 2>&1; then \
 		echo "Error: kubectl is not installed or not in PATH"; \
