@@ -44,6 +44,28 @@
               "id.token.claim": "true",
               "access.token.claim": "true"
             }
+          },
+          {
+            "name": "agent-sts-mapper",
+            "type": "oidc-audience-mapper",
+            "config": {
+              "included.client.audience": "agent-sts",
+              "id.token.claim": "true",
+              "access.token.claim": "true"
+            }
+          },
+          {
+            "name": "may-act-mapper",
+            "type": "oidc-hardcoded-claim-mapper",
+            "config": {
+              "claim.name": "may_act",
+              "claim.value": "{\"sub\":\"spiffe://cluster.local/ns/default/sa/supply-chain-agent\"}",
+              "jsonType.label": "JSON",
+              "id.token.claim": "false",
+              "access.token.claim": "true",
+              "userinfo.token.claim": "false",
+              "access.tokenResponse.claim": "false"
+            }
           }
         ]
       }
