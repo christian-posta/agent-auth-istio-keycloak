@@ -13,15 +13,15 @@ binds:
         a2a: {}
         jwtAuth:
           mode: strict
-          issuer: agent-sts
-          audiences: [supply-chain-agent]
+          issuer: http://localhost:8080/realms/mcp-realm
+          audiences: [agentgateway]
           jwks:
-            url: http://localhost:8081/.well-known/jwks.json        
+            url: http://localhost:8080/realms/mcp-realm/protocol/openid-connect/certs        
         backendAuth:
           passthrough: {}
         authorization:
           rules:
-          - 'jwt.name == "mcp-user"'
+          - 'jwt.preferred_username == "mcp-user"'
         cors:
           allowOrigins:
             - "*"
@@ -37,10 +37,10 @@ binds:
         a2a: {}
         jwtAuth:
           mode: strict
-          issuer: agent-sts
-          audiences: [supply-chain-agent]
+          issuer: http://localhost:8080/realms/mcp-realm
+          audiences: [agentgateway]
           jwks:
-            url: http://localhost:8081/.well-known/jwks.json            
+            url: http://localhost:8080/realms/mcp-realm/protocol/openid-connect/certs             
         cors:
           allowOrigins:
             - "*"
@@ -62,10 +62,10 @@ binds:
             - "*"
         jwtAuth:
           mode: strict
-          issuer: agent-sts
-          audiences: [supply-chain-agent]
+          issuer: http://localhost:8080/realms/mcp-realm
+          audiences: [agentgateway]
           jwks:
-            url: http://localhost:8081/.well-known/jwks.json         
+            url: http://localhost:8080/realms/mcp-realm/protocol/openid-connect/certs             
       backends:
       - mcp:
           targets:

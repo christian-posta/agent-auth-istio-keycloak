@@ -26,5 +26,9 @@ class Settings:
     
     # A2A Configuration
     supply_chain_agent_url: str = os.getenv("SUPPLY_CHAIN_AGENT_URL", "http://supply-chain-agent.localhost:3000")
+    
+    # Agent STS Configuration
+    agent_sts_url: str = os.getenv("AGENT_STS_URL", "http://localhost:8081")
+    backend_spiffe_id: str = os.getenv("BACKEND_SPIFFE_ID", "spiffe://cluster.local/ns/default/sa/backend")
 
 settings = Settings()
