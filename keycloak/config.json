@@ -59,7 +59,7 @@
             "type": "oidc-hardcoded-claim-mapper",
             "config": {
               "claim.name": "may_act",
-              "claim.value": "{\"sub\":\"spiffe://cluster.local/ns/default/sa/supply-chain-agent\"}",
+              "claim.value": "{\"sub\":[\"spiffe://cluster.local/ns/default/sa/supply-chain-agent\",\"spiffe://cluster.local/ns/default/sa/market-analysis-agent\"]}",
               "jsonType.label": "JSON",
               "id.token.claim": "false",
               "access.token.claim": "true",
