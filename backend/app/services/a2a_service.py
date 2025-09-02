@@ -28,12 +28,12 @@ class A2AService:
             pool=30.0          # 30 seconds for connection pool
         )
     
-    async def _create_client(self, trace_context: Any = None, id_token: str = None) -> tuple[Any, httpx.AsyncClient]:
+    async def _create_client(self, trace_context: Any = None, auth_token: str = None) -> tuple[Any, httpx.AsyncClient]:
         """Create A2A client and HTTP client with tracing support"""
         with span("a2a_service.create_client", {
             "agent_url": self.agent_url,
             "has_trace_context": trace_context is not None,
-            "has_id_token": id_token is not None
+            "has_auth_token": auth_token is not None
         }) as span_obj:
             
             print(f"🔧 Creating A2A client for URL: {self.agent_url}")
@@ -65,21 +65,21 @@ class A2AService:
             print(f"✅ Agent card created: {agent_card}")
             add_event("agent_card_created", {"agent_url": self.agent_url})
             
-            # Create ID token headers for agent authentication
-            id_token_headers = {}
-            if id_token:
-                id_token_headers["Authorization"] = f"Bearer {id_token}"
-                print("🔐 ID token added to headers for agent authentication")
-                add_event("id_token_added_to_headers")
+            # Create auth token headers for agent authentication
+            auth_token_headers = {}
+            if auth_token:
+                auth_token_headers["Authorization"] = f"Bearer {auth_token}"
+                print("🔐 Access token added to headers for agent authentication")
+                add_event("access_token_added_to_headers")
             
-            # Create tracing interceptor with ID token headers
-            tracing_interceptor = TracingInterceptor(trace_headers=id_token_headers)
+            # Create tracing interceptor with auth token headers
+            tracing_interceptor = TracingInterceptor(trace_headers=auth_token_headers)
             add_event("tracing_interceptor_created")
             
             # Create client with tracing interceptor
             client = factory.create(agent_card, interceptors=[tracing_interceptor])
-            print("✅ A2A client created with tracing and ID token authentication")
-            add_event("a2a_client_created_with_tracing_and_id_token")
+            print("✅ A2A client created with tracing and access token authentication")
+            add_event("a2a_client_created_with_tracing_and_access_token")
             
             return client, httpx_client
     
@@ -88,15 +88,15 @@ class A2AService:
         request: OptimizationRequest, 
         user_id: str,
         trace_context: Any = None,
-        id_token: str = None
+        auth_token: str = None
     ) -> Dict[str, Any]:
-        """Optimize supply chain using A2A agent with tracing support and ID token authentication"""
+        """Optimize supply chain using A2A agent with tracing support and access token authentication"""
         
         with span("a2a_service.optimize_supply_chain", {
             "user_id": user_id,
             "request_type": request.effective_optimization_type,
             "has_trace_context": trace_context is not None,
-            "has_id_token": id_token is not None
+            "has_auth_token": auth_token is not None
         }, parent_context=trace_context) as span_obj:
             
             client, httpx_client = None, None
@@ -112,7 +112,7 @@ class A2AService:
                 
                 # Create A2A client with tracing
                 print("🔧 Creating A2A client...")
-                client, httpx_client = await self._create_client(trace_context, id_token)
+                client, httpx_client = await self._create_client(trace_context, auth_token)
                 print("✅ A2A client created successfully")
                 add_event("a2a_client_created_successfully")
                 
@@ -344,18 +344,18 @@ class A2AService:
         
         return False
     
-    async def test_connection(self, id_token: str = None) -> Dict[str, Any]:
-        """Test connection to the A2A agent with tracing support and ID token authentication"""
+    async def test_connection(self, auth_token: str = None) -> Dict[str, Any]:
+        """Test connection to the A2A agent with tracing support and access token authentication"""
         with span("a2a_service.test_connection", {
             "agent_url": self.agent_url,
-            "has_id_token": id_token is not None
+            "has_auth_token": auth_token is not None
         }) as span_obj:
             
             try:
                 add_event("connection_test_started", {"agent_url": self.agent_url})
                 
                 # Create a simple test client
-                client, httpx_client = await self._create_client(id_token=id_token)
+                client, httpx_client = await self._create_client(auth_token=auth_token)
                 
                 # Test with a simple message
                 test_message = create_text_message_object(

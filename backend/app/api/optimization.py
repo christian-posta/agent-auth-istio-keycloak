@@ -28,14 +28,14 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     # Return both the payload and the raw token for use in downstream services
     return {"payload": payload, "token": token}
 
-async def run_optimization_workflow(request_id: str, user_id: str, request: OptimizationRequest, trace_context: Any = None, id_token: str = None):
+async def run_optimization_workflow(request_id: str, user_id: str, request: OptimizationRequest, trace_context: Any = None, auth_token: str = None):
     """Background task to run the optimization workflow using A2A agent with tracing support"""
     with span("optimization_api.run_optimization_workflow", {
         "request_id": request_id,
         "user_id": user_id,
         "request_type": request.optimization_type,
         "has_trace_context": trace_context is not None,
-        "has_id_token": id_token is not None
+        "has_auth_token": auth_token is not None
     }, parent_context=trace_context) as span_obj:
         
         try:
@@ -54,11 +54,11 @@ async def run_optimization_workflow(request_id: str, user_id: str, request: Opti
             print("📊 Progress updated: Connecting to A2A agent")
             add_event("progress_updated", {"step": "Connecting to A2A agent", "percentage": 0.0})
             
-            # Get response from A2A agent with tracing context and ID token
+            # Get response from A2A agent with tracing context and auth token
             print("🤖 Calling A2A service...")
             add_event("calling_a2a_service")
             
-            response = await a2a_service.optimize_supply_chain(request, user_id, trace_context, id_token)
+            response = await a2a_service.optimize_supply_chain(request, user_id, trace_context, auth_token)
             print(f"📨 A2A service response: {response}")
             
             add_event("a2a_service_response_received", {
@@ -184,24 +184,16 @@ async def start_optimization(
                     add_event("trace_context_extracted_from_headers")
                     set_attribute("tracing.context_extracted", True)
             
-            # Get ID token from the X-ID-Token header for agent-to-agent authentication
-            id_token = None
+            # Get access token from the Authorization header for agent-to-agent authentication
+            auth_token = None
             if http_request:
-                id_token_header = http_request.headers.get("X-ID-Token")
-                if id_token_header:
-                    id_token = id_token_header
-                    add_event("id_token_extracted_for_agent_auth")
-                    set_attribute("jwt.id_token_extracted", True)
-                    print(f"🔐 ID token extracted for agent authentication: {id_token[:20]}...")
-                else:
-                    print("⚠️ No ID token found in X-ID-Token header, using access token as fallback")
-                    # Fallback to access token if ID token not available
-                    authorization_header = http_request.headers.get("Authorization")
-                    if authorization_header and authorization_header.startswith("Bearer "):
-                        id_token = authorization_header.replace("Bearer ", "")
-                        if id_token:
-                            add_event("access_token_used_as_fallback")
-                            set_attribute("jwt.fallback_to_access_token", True)
+                authorization_header = http_request.headers.get("Authorization")
+                if authorization_header and authorization_header.startswith("Bearer "):
+                    auth_token = authorization_header.replace("Bearer ", "")
+                    if auth_token:
+                        add_event("access_token_extracted_for_agent_auth")
+                        set_attribute("jwt.access_token_extracted", True)
+                        print(f"🔐 Access token extracted for agent authentication: {auth_token[:20]}...")
             
             print(f"🚀 Starting optimization for user: {current_user['payload'].get('sub')}")
             print(f"📝 Request: {request}")
@@ -218,14 +210,14 @@ async def start_optimization(
             print(f"✅ Created optimization request: {request_id}")
             add_event("optimization_request_created", {"request_id": request_id})
             
-            # Add background task with tracing context and ID token
+            # Add background task with tracing context and auth token
             background_tasks.add_task(
                 run_optimization_workflow, 
                 request_id, 
                 current_user['payload'].get("sub"), 
                 request,
                 trace_context,
-                id_token
+                auth_token
             )
             print(f"🔄 Added background task for request: {request_id}")
             add_event("background_task_added", {"request_id": request_id})
@@ -436,26 +428,19 @@ async def test_a2a_connection(
                     add_event("trace_context_extracted_from_headers")
                     set_attribute("tracing.context_extracted", True)
             
-            # Extract ID token from headers if available
-            id_token = None
+            # Extract auth token from headers if available
+            auth_token = None
             if http_request:
-                id_token_header = http_request.headers.get("X-ID-Token")
-                if id_token_header:
-                    id_token = id_token_header
-                    add_event("id_token_extracted_for_agent_auth")
-                    set_attribute("jwt.id_token_extracted", True)
-                else:
-                    # Fallback to access token if ID token not available
-                    authorization_header = http_request.headers.get("Authorization")
-                    if authorization_header and authorization_header.startswith("Bearer "):
-                        id_token = authorization_header.replace("Bearer ", "")
-                        if id_token:
-                            add_event("access_token_used_as_fallback")
-                            set_attribute("jwt.fallback_to_access_token", True)
+                authorization_header = http_request.headers.get("Authorization")
+                if authorization_header and authorization_header.startswith("Bearer "):
+                    auth_token = authorization_header.replace("Bearer ", "")
+                    if auth_token:
+                        add_event("access_token_extracted_for_agent_auth")
+                        set_attribute("jwt.access_token_extracted", True)
             
             add_event("a2a_connection_test_requested", {"user_id": current_user["payload"].get("sub")})
             
-            connection_status = await a2a_service.test_connection(id_token=id_token)
+            connection_status = await a2a_service.test_connection(auth_token=auth_token)
             
             add_event("a2a_connection_test_completed", {"status": connection_status.get("status")})
             return connection_status
