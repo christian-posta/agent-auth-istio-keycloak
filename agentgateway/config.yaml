@@ -43,9 +43,11 @@ binds:
         jwtAuth:
           mode: strict
           issuer: agent-sts
-          audiences: [supply-chain-agent]
+          audiences: [market-analysis-agent]
           jwks:
-            url: http://localhost:8081/.well-known/jwks.json            
+            url: http://localhost:8081/.well-known/jwks.json           
+        backendAuth:
+          passthrough: {}             
         cors:
           allowOrigins:
             - "*"
@@ -68,7 +70,7 @@ binds:
         jwtAuth:
           mode: strict
           issuer: agent-sts
-          audiences: [supply-chain-agent]
+          audiences: ["company-mcp.default"]
           jwks:
             url: http://localhost:8081/.well-known/jwks.json         
       backends:
@@ -87,4 +89,3 @@ binds:
               cmd: npx
               args: ["@modelcontextprotocol/server-sequential-thinking"]              
     
-

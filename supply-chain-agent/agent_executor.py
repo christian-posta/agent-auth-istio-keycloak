@@ -63,8 +63,10 @@ class JWTInterceptor(ClientCallInterceptor):
         http_kwargs['headers'] = headers
         
         print(f"🔐 JWTInterceptor: Injected Authorization header with Bearer token")
-        print(f"🔐 Token length: {len(self.jwt_token)} characters")
-        print(f"🔐 Token first 50 chars: {self.jwt_token[:50]}...")
+        print(f"🔐 JWTInterceptor: Full Authorization header: Bearer {self.jwt_token}")
+        print(f"🔐 JWTInterceptor: Token length: {len(self.jwt_token)} characters")
+        print(f"🔐 JWTInterceptor: Token first 50 chars: {self.jwt_token[:50]}...")
+        print(f"🔐 JWTInterceptor: Token last 50 chars: ...{self.jwt_token[-50:]}")
         
         return request_payload, http_kwargs
 
@@ -653,20 +655,21 @@ class SupplyChainOptimizerExecutor(AgentExecutor):
                 print(f"🔐 Stored token length: {len(jwt_token)} characters")
                 print(f"🔐 Stored token first 50 chars: {jwt_token[:50]}...")
                 print(f"🔐 Stored token last 50 chars: ...{jwt_token[-50:]}")
+                print(f"🔐 Full JWT token received: {jwt_token}")
                 add_event("jwt_token_stored_in_agent")
                 set_attribute("auth.jwt_stored", True)
                 
-                # Exchange the OBO token for a market-research-agent targeted OBO token
-                print(f"🔄 Exchanging OBO token for market-research-agent targeted token...")
+                # Exchange the OBO token for a market-analysis-agent targeted OBO token
+                print(f"🔄 Exchanging OBO token for market-analysis-agent targeted token...")
                 exchanged_token = await agent_sts_service.exchange_token(
                     obo_token=jwt_token,
-                    resource="market-research-agent",
+                    resource="market-analysis-agent",
                     actor_token=os.getenv("SUPPLY_CHAIN_SPIFFE_ID", "spiffe://cluster.local/ns/default/sa/supply-chain-agent")
                 )
                 
                 if exchanged_token:
                     self.agent.exchanged_obo_token = exchanged_token
-                    print(f"✅ OBO token exchange successful for market-research-agent")
+                    print(f"✅ OBO token exchange successful for market-analysis-agent")
                     print(f"🔐 Exchanged token length: {len(exchanged_token)} characters")
                     print(f"🔐 Exchanged token first 50 chars: {exchanged_token[:50]}...")
                     add_event("obo_token_exchange_successful_for_market_analysis")

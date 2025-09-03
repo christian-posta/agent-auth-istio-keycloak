@@ -22,7 +22,7 @@ class AgentSTSService:
     async def exchange_token(
         self, 
         obo_token: str, 
-        resource: str = "market-research-agent",
+        resource: str = "market-analysis-agent",
         actor_token: str = "spiffe://cluster.local/ns/default/sa/supply-chain-agent"
     ) -> Optional[str]:
         """
@@ -43,7 +43,7 @@ class AgentSTSService:
         }) as span_obj:
             
             try:
-                print(f"🔄 Exchanging OBO token for market-research-agent OBO token...")
+                print(f"🔄 Exchanging OBO token for market-analysis-agent OBO token...")
                 print(f"📋 Resource: {resource}")
                 print(f"👤 Actor: {actor_token}")
                 print(f"🔐 Input OBO token: {obo_token[:50]}...")
