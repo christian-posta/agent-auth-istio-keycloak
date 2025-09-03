@@ -46,6 +46,7 @@ class AgentSTSService:
                 print(f"🔄 Exchanging access token for OBO token...")
                 print(f"📋 Resource: {resource}")
                 print(f"👤 Actor: {actor_token}")
+                print(f"🔐 Input access token: {access_token[:50]}...")
                 add_event("token_exchange_started", {
                     "resource": resource,
                     "actor_token": actor_token
@@ -65,6 +66,7 @@ class AgentSTSService:
                 payload = urlencode(payload_data)
                 
                 print(f"📡 Sending token exchange request to: {self.api_endpoint}")
+                print(f"📝 Request payload: {payload}")
                 add_event("token_exchange_request_sent", {
                     "endpoint": self.api_endpoint,
                     "payload_length": len(payload)
@@ -79,6 +81,7 @@ class AgentSTSService:
                     )
                 
                 print(f"📨 Token exchange response status: {response.status_code}")
+                print(f"📨 Response body: {response.text}")
                 add_event("token_exchange_response_received", {
                     "status_code": response.status_code,
                     "response_length": len(response.text)
@@ -92,6 +95,7 @@ class AgentSTSService:
                         
                         if obo_token:
                             print(f"✅ Token exchange successful! OBO token: {obo_token[:50]}...")
+                            print(f"🔐 Full OBO token: {obo_token}")
                             add_event("token_exchange_successful", {
                                 "obo_token_length": len(obo_token)
                             })

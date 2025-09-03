@@ -13,17 +13,19 @@ load_dotenv()
 # Initialize tracing before creating the FastAPI app
 jaeger_host = os.getenv("JAEGER_HOST", "localhost")  # Default to localhost for development
 jaeger_port = int(os.getenv("JAEGER_PORT", "4317"))
+enable_console_exporter = os.getenv("ENABLE_CONSOLE_EXPORTER", "true").lower() == "true"
 
 print(f"🔗 Initializing tracing with Jaeger at {jaeger_host}:{jaeger_port}")
 print(f"🔗 Environment variables loaded from .env file")
 print(f"🔗 JAEGER_HOST: {os.getenv('JAEGER_HOST', 'NOT SET')}")
 print(f"🔗 JAEGER_PORT: {os.getenv('JAEGER_PORT', 'NOT SET')}")
+print(f"🔗 ENABLE_CONSOLE_EXPORTER: {os.getenv('ENABLE_CONSOLE_EXPORTER', 'true')}")
 
 initialize_tracing(
     service_name="supply-chain-backend",
     jaeger_host=jaeger_host,
     jaeger_port=jaeger_port,
-    enable_console_exporter=True
+    enable_console_exporter=enable_console_exporter
 )
 
 app = FastAPI(
