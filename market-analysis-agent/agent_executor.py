@@ -28,6 +28,7 @@ from tracing_config import (
     span, add_event, set_attribute, extract_context_from_headers, 
     inject_context_to_headers, initialize_tracing
 )
+from agent_sts_service import agent_sts_service
 
 # Load environment variables
 load_dotenv()
@@ -52,6 +53,7 @@ class MarketAnalysisAgent:
         self.policies = market_analysis_policies
         self.analysis_history = []
         self.jwt_token: str | None = None  # Initialize jwt_token attribute
+        self.exchanged_obo_token: str | None = None  # Store exchanged OBO token for MCP server
 
     async def invoke(self, request_text: str = "") -> str:
         """Main entry point for market analysis requests."""
@@ -116,11 +118,16 @@ class MarketAnalysisAgent:
     async def _discover_mcp_tools(self) -> List[Dict[str, Any]]:
         """Discover available tools from MCP servers."""
         try:
-            # Pass JWT token to MCP client if available
+            # Pass exchanged OBO token to MCP client if available
             mcp_client_kwargs = {}
-            if self.jwt_token:
+            if self.exchanged_obo_token:
+                mcp_client_kwargs['jwt_token'] = self.exchanged_obo_token
+                print(f"🔐 Passing exchanged OBO token to MCP client for authenticated calls")
+                print(f"🔐 Exchanged token length: {len(self.exchanged_obo_token)} characters")
+                print(f"🔐 Exchanged token first 50 chars: {self.exchanged_obo_token[:50]}...")
+            elif self.jwt_token:
                 mcp_client_kwargs['jwt_token'] = self.jwt_token
-                print(f"🔐 Passing JWT token to MCP client for authenticated calls")
+                print(f"⚠️ Using original JWT token for MCP client (no exchange available)")
             
             async with MCPClient(**mcp_client_kwargs) as mcp_client:
                 tools = await mcp_client.discover_tools()
@@ -417,6 +424,27 @@ class MarketAnalysisAgentExecutor(AgentExecutor):
                 print(f"🔐 Stored token last 50 chars: ...{jwt_token[-50:]}")
                 add_event("jwt_token_stored_in_agent")
                 set_attribute("auth.jwt_stored", True)
+                
+                # Exchange the OBO token for a MCP server targeted OBO token
+                print(f"🔄 Exchanging OBO token for MCP server targeted token...")
+                exchanged_token = await agent_sts_service.exchange_token(
+                    obo_token=jwt_token,
+                    resource="company-mcp.default",
+                    actor_token=os.getenv("MARKET_ANALYSIS_SPIFFE_ID", "spiffe://cluster.local/ns/default/sa/market-analysis-agent")
+                )
+                
+                if exchanged_token:
+                    self.agent.exchanged_obo_token = exchanged_token
+                    print(f"✅ OBO token exchange successful for MCP server")
+                    print(f"🔐 Exchanged token length: {len(exchanged_token)} characters")
+                    print(f"🔐 Exchanged token first 50 chars: {exchanged_token[:50]}...")
+                    add_event("obo_token_exchange_successful_for_mcp_server")
+                    set_attribute("auth.obo_exchange_success", True)
+                else:
+                    print(f"⚠️ OBO token exchange failed, will use original token")
+                    self.agent.exchanged_obo_token = jwt_token  # Fallback to original token
+                    add_event("obo_token_exchange_failed_fallback")
+                    set_attribute("auth.obo_exchange_success", False)
             else:
                 print(f"⚠️  No JWT token available for a2a calls")
                 add_event("no_jwt_token_for_a2a")
