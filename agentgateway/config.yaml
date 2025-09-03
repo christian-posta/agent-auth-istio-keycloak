@@ -11,6 +11,11 @@ config:
         user_id: 'jwt.name'
         token_issuer: 'jwt.iss'
         token_audience: 'jwt.aud'
+        # Useful in environments where identity is included in the transport, ie SPIFFE
+        # source_identity: 'source.identity.trustDomain + "/" + source.identity.namespace + "/" + source.identity.serviceAccount'
+        # source_trust_domain: 'source.identity.trustDomain'
+        # source_namespace: 'source.identity.namespace'
+        # source_service_account: 'source.identity.serviceAccount'
   logging:
     fields:
       add:
