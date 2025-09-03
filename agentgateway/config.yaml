@@ -3,6 +3,11 @@ config:
   tracing:
     otlpEndpoint: http://localhost:4317
     randomSampling: true
+  logging:
+    fields:
+      add:
+        # Add JWT actor claim
+        "jwt.act": "jwt.act"    
 binds:
 - port: 3000
   listeners:
