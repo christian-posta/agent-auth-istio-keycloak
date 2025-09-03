@@ -18,7 +18,7 @@ issuers:
   - id: "agent-sts"
     issuer: "agent-sts"
     jwks_endpoint: "http://localhost:8081/.well-known/jwks.json"
-    audience: "agentgateway"
+    audience: "agent-sts"
 
 claims:
   persistent:
@@ -41,11 +41,11 @@ claims:
       to: "groups"
       required: false
     
-    - from: "name"
+    - from: "preferred_username"
       to: "name"
-      required: false
+      required: false      
 
 actor:
   max_chain_depth: 5
   metadata_endpoint: "http://169.254.169.111/connection"
-  default_audience: "agentgateway"
+  default_audience: ""

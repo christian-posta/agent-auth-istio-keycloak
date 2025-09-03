@@ -14,6 +14,7 @@ from tracing_config import (
     span, add_event, set_attribute, extract_context_from_headers, 
     inject_context_to_headers, initialize_tracing
 )
+from agent_sts_service import agent_sts_service
 
 
 class TracingInterceptor(ClientCallInterceptor):
@@ -90,16 +91,17 @@ class SupplyChainOptimizerAgent:
         print(f"🔗 Market Analysis Agent URL: {self.market_analysis_url}")
         self.market_analysis_client = None
         self.jwt_token: str | None = None # Initialize jwt_token attribute
+        self.exchanged_obo_token: str | None = None # Store exchanged OBO token for market-analysis-agent
 
     async def _get_market_analysis_client(self):
         """Get or create the market analysis agent client."""
         # Check if we need to recreate the client due to JWT token changes
         if (self.market_analysis_client is not None and 
             hasattr(self.market_analysis_client, '_jwt_token_used') and 
-            self.market_analysis_client._jwt_token_used != self.jwt_token):
-            print(f"🔄 JWT token changed, recreating market analysis client")
-            add_event("jwt_token_changed_recreating_client")
-            set_attribute("market_analysis.jwt_token_changed", True)
+            self.market_analysis_client._jwt_token_used != self.exchanged_obo_token):
+            print(f"🔄 Exchanged OBO token changed, recreating market analysis client")
+            add_event("exchanged_obo_token_changed_recreating_client")
+            set_attribute("market_analysis.exchanged_obo_token_changed", True)
             self.market_analysis_client = None
         
         if self.market_analysis_client is None:
@@ -139,16 +141,16 @@ class SupplyChainOptimizerAgent:
                 
                 # Add JWT interceptor if token is available
                 interceptors = []
-                if self.jwt_token:
-                    print(f"🔐 Adding JWT interceptor for market analysis agent calls")
-                    jwt_interceptor = JWTInterceptor(self.jwt_token)
+                if self.exchanged_obo_token:
+                    print(f"🔐 Adding JWT interceptor for market analysis agent calls with exchanged OBO token")
+                    jwt_interceptor = JWTInterceptor(self.exchanged_obo_token)
                     interceptors.append(jwt_interceptor)
-                    add_event("jwt_interceptor_added_to_market_analysis_client")
-                    set_attribute("market_analysis.jwt_interceptor_added", True)
+                    add_event("exchanged_obo_token_interceptor_added_to_market_analysis_client")
+                    set_attribute("market_analysis.exchanged_obo_token_interceptor_added", True)
                 else:
-                    print(f"⚠️  No JWT token available, creating market analysis client without authentication")
-                    add_event("market_analysis_client_created_without_jwt")
-                    set_attribute("market_analysis.jwt_interceptor_added", False)
+                    print(f"⚠️  No exchanged OBO token available, creating market analysis client without authentication")
+                    add_event("market_analysis_client_created_without_exchanged_obo_token")
+                    set_attribute("market_analysis.exchanged_obo_token_interceptor_added", False)
                 
                 # Create client factory with interceptors
                 factory = ClientFactory(config)
@@ -168,8 +170,8 @@ class SupplyChainOptimizerAgent:
                     self.market_analysis_client = factory.create(market_analysis_card)
                     print(f"✅ Market analysis client created without interceptors")
                 
-                # Store the JWT token used for this client to detect changes
-                self.market_analysis_client._jwt_token_used = self.jwt_token
+                # Store the exchanged OBO token used for this client to detect changes
+                self.market_analysis_client._jwt_token_used = self.exchanged_obo_token
                 
                 add_event("market_analysis_client_created")
                 set_attribute("market_analysis.client_ready", True)
@@ -653,6 +655,27 @@ class SupplyChainOptimizerExecutor(AgentExecutor):
                 print(f"🔐 Stored token last 50 chars: ...{jwt_token[-50:]}")
                 add_event("jwt_token_stored_in_agent")
                 set_attribute("auth.jwt_stored", True)
+                
+                # Exchange the OBO token for a market-research-agent targeted OBO token
+                print(f"🔄 Exchanging OBO token for market-research-agent targeted token...")
+                exchanged_token = await agent_sts_service.exchange_token(
+                    obo_token=jwt_token,
+                    resource="market-research-agent",
+                    actor_token=os.getenv("SUPPLY_CHAIN_SPIFFE_ID", "spiffe://cluster.local/ns/default/sa/supply-chain-agent")
+                )
+                
+                if exchanged_token:
+                    self.agent.exchanged_obo_token = exchanged_token
+                    print(f"✅ OBO token exchange successful for market-research-agent")
+                    print(f"🔐 Exchanged token length: {len(exchanged_token)} characters")
+                    print(f"🔐 Exchanged token first 50 chars: {exchanged_token[:50]}...")
+                    add_event("obo_token_exchange_successful_for_market_analysis")
+                    set_attribute("auth.obo_exchange_success", True)
+                else:
+                    print(f"⚠️ OBO token exchange failed, will use original token")
+                    self.agent.exchanged_obo_token = jwt_token  # Fallback to original token
+                    add_event("obo_token_exchange_failed_fallback")
+                    set_attribute("auth.obo_exchange_success", False)
             else:
                 print(f"⚠️  No JWT token available for a2a calls")
                 add_event("no_jwt_token_for_a2a")
