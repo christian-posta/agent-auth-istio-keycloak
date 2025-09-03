@@ -35,6 +35,10 @@ spec:
           value: "4317"
         - name: MARKET_ANALYSIS_AGENT_URL
           value: "http://market-analysis-agent.default/"
+        - name: AGENT_STS_URL
+          value: "http://agent-sts.default:8081"
+        - name: SUPPLY_CHAIN_SPIFFE_ID
+          value: "spiffe://cluster.local/ns/default/sa/supply-chain-agent"
         - name: MARKET_ANALYSIS_CONNECT_TIMEOUT
           value: "30.0"
         - name: MARKET_ANALYSIS_READ_TIMEOUT
