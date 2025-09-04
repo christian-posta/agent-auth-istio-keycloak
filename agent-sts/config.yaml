@@ -31,6 +31,10 @@ claims:
       to: "may_act"
       required: false
       description: "Authorization delegation permissions"
+
+    - from: "name"
+      to: "name"
+      required: false            
   
   transient:
     - from: "email"
@@ -40,10 +44,12 @@ claims:
     - from: "groups"
       to: "groups"
       required: false
-    
+
     - from: "preferred_username"
       to: "name"
-      required: false      
+      required: false                  
+    
+
 
 actor:
   max_chain_depth: 5
