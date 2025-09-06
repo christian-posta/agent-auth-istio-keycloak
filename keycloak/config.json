@@ -72,6 +72,17 @@
     ],
     "clients": [
       {
+        "clientId": "mcp-portal",
+        "name": "MCP Portal",
+        "type": "confidential", 
+        "enabled": true,
+        "standardFlowEnabled": true,
+        "directAccessGrantsEnabled": true,
+        "clientSecret": "PLOs4j6ti521kb5ZVVVwi5GWi9eDYTwq",
+        "webOrigins": ["http://localhost:3001"],
+        "redirectUris": ["http://localhost:3001/auth/callback"]
+      },       
+      {
         "clientId": "supply-chain-ui",
         "name": "Supply Chain UI",
         "type": "public",
